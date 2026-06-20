@@ -1,0 +1,121 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+html {
+  font-size: 19px;
+}
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Modern Admin Theme — Light & Clean (Shadcn inspired) */
+  --admin-bg: 255 255 255; 
+  --admin-surface: 255 255 255;
+  --admin-border: 241 245 249; /* slate-100 */
+  --admin-text: 15 23 42; /* slate-900 */
+  --admin-muted: 100 116 139; /* slate-500 */
+  --admin-accent: 79 70 229; /* indigo-600 */
+  --admin-sidebar: 255 255 255;
+  --admin-sidebar-border: 241 245 249;
+  --admin-header-bg: 255 255 255;
+  
+  /* Status Colors */
+  --status-active-bg: 240 253 244; /* green-50 */
+  --status-active-text: 22 101 52; /* green-800 */
+  --status-inactive-bg: 254 242 242; /* red-50 */
+  --status-inactive-text: 153 27 27; /* red-800 */
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom Animations */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Gradient text utility */
+.bg-clip-text {
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c7c7c7;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Admin shell background */
+.admin-shell {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--admin-bg)) 0%,
+    rgb(241 245 249) 100%
+  );
+}
