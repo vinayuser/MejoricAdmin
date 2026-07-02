@@ -26,10 +26,17 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Session expired or invalid
+    const status = error.response?.status;
+    const message = error.response?.data?.message || "";
+
+    if (status === 401) {
       localStorage.removeItem("user");
-      // Optional: Add a more robust way to clear state if using Redux outside of components
+      window.location.href = "/admin/login";
+    } else if (
+      status === 403 &&
+      /forbidden|invalid.*token|permission/i.test(message)
+    ) {
+      localStorage.removeItem("user");
       window.location.href = "/admin/login";
     }
     return Promise.reject(error);

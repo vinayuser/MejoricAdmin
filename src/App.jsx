@@ -24,7 +24,11 @@ import MenteeAdd from "./pages/mentee/MenteeAdd";
 import MateAdd from "./pages/mate/MateAdd";
 import MateList from "./pages/mate/MateList";
 import MateEdit from "./pages/mate/MateEdit";
+import MentorList from "./pages/mentor/MentorList";
+import MentorAdd from "./pages/mentor/MentorAdd";
+import MentorEdit from "./pages/mentor/MentorEdit";
 import Users from "./pages/Users";
+import BulkSms from "./pages/BulkSms";
 
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -59,6 +63,7 @@ const App = () => {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/users" element={<Users />} />
+                <Route path="/bulk-sms" element={<BulkSms />} />
                 <Route path="/financials" element={<Financials />} />
                 <Route path="/bookings" element={<Bookings />} />
                 <Route path="/mentees" element={<MenteeList />} />
@@ -66,6 +71,9 @@ const App = () => {
                 <Route path="/mate/add" element={<MateAdd />} />
                 <Route path="/mates" element={<MateList />} />
                 <Route path="/mate/edit/:id" element={<MateEdit />} />
+                <Route path="/mentors" element={<MentorList />} />
+                <Route path="/mentor/add" element={<MentorAdd />} />
+                <Route path="/mentor/edit/:id" element={<MentorEdit />} />
 
 
                 <Route path="/category/add" element={<CategoryAddEdit />} />

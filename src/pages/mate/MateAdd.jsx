@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Save,
@@ -15,9 +16,11 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import axiosInstance from "../../api/axiosInstance";
+import API_ENDPOINTS from "../../api/apiEndpoint";
 
 const MateAdd = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -89,15 +92,16 @@ bio:"",
           data.append("image", formData.image);
         }
 
-        // POST /auth/register
-        await axiosInstance.post("/auth/register", data, {
+        // POST /mates/create (admin) — do not use /auth/register (swaps admin session)
+        await axiosInstance.post(API_ENDPOINTS.MATES.CREATE, data, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
         });
 
+        await queryClient.invalidateQueries({ queryKey: ["mates"] });
         toast.success("Mate added successfully!");
-        navigate("/mates");
+        navigate("/mates", { state: { fromCreate: true } });
       } catch (error) {
         const errorMessage =
           error?.response?.data?.message ||

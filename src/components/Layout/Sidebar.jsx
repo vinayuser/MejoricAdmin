@@ -14,14 +14,13 @@ const Sidebar = () => {
         { name: "Profile", path: "/profile", icon: <ProfileIcon /> },
         { name: "Users", path: "/users", icon: <UsersIcon /> },
         { name: "Financials", path: "/financials", icon: <FinancialsIcon /> },
-        { name: "Bookings", path: "/bookings", icon: <BookingsIcon /> },
       ],
     },
     {
       title: "Content",
       items: [
         { name: "Mates", path: "/mates", icon: <MatesIcon /> },
-        { name: "Mentors", path: "/mentees", icon: <MentorsIcon /> },
+        { name: "Mentors", path: "/mentors", icon: <MentorsIcon /> },
         { name: "Gallery", path: "/gallery", icon: <GalleryIcon /> },
       ],
     },
@@ -53,7 +52,10 @@ const Sidebar = () => {
                 {section.title}
               </h3>
               {section.items.map((item) => {
-                const isActive = location.pathname === item.path;
+                const isActive =
+                  location.pathname === item.path ||
+                  (item.path === "/mentors" &&
+                    location.pathname.startsWith("/mentor"));
                 return (
                   <Link
                     key={item.name}
@@ -137,15 +139,6 @@ const FinancialsIcon = () => (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect width="20" height="14" x="2" y="5" rx="2" />
     <line x1="2" x2="22" y1="10" y2="10" />
-  </svg>
-);
-
-const BookingsIcon = () => (
-  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="18" height="18" x="3" y="4" rx="2" />
-    <line x1="16" x2="16" y1="2" y2="6" />
-    <line x1="8" x2="8" y1="2" y2="6" />
-    <line x1="3" x2="21" y1="10" y2="10" />
   </svg>
 );
 

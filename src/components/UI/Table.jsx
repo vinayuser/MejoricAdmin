@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Eye, Pencil, Trash2, ClipboardPlus, History } from "lucide-react";
+import { Plus, Eye, Pencil, Trash2, ClipboardPlus, History, KeyRound } from "lucide-react";
 
 const Table = ({
   columns,
@@ -11,6 +11,7 @@ const Table = ({
   onDelete,
   onReport,
   onHistory,
+  onResetPassword,
   title,
   description,
   addButtonText = "Add new",
@@ -109,6 +110,7 @@ const Table = ({
                     {onEdit && <ActionButton onClick={() => onEdit(row)} icon={Pencil} title="Edit" hoverBgClass="hover:bg-slate-100" hoverColorClass="hover:text-slate-900" />}
                     {onReport && <ActionButton onClick={() => onReport(row)} icon={ClipboardPlus} title="Report" hoverBgClass="hover:bg-slate-100" hoverColorClass="hover:text-slate-900" />}
                     {onHistory && <ActionButton onClick={() => onHistory(row)} icon={History} title="History" hoverBgClass="hover:bg-slate-100" hoverColorClass="hover:text-slate-900" />}
+                    {onResetPassword && <ActionButton onClick={() => onResetPassword(row)} icon={KeyRound} title="Reset password" hoverBgClass="hover:bg-amber-50" hoverColorClass="hover:text-amber-600" />}
                     {onDelete && <ActionButton onClick={() => onDelete(row)} icon={Trash2} title="Delete" hoverBgClass="hover:bg-red-50" hoverColorClass="hover:text-red-600" />}
                   </div>
                 </td>

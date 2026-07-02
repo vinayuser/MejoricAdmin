@@ -57,7 +57,7 @@ const MateList = () => {
 
   useEffect(() => {
     refetch();
-  }, [location.state?.fromEdit, refetch]);
+  }, [location.state?.fromEdit, location.state?.fromCreate, refetch]);
 
   const deleteMutation = useDeleteMutation(API_ENDPOINTS.MATES.DELETE, {
     onSuccess: () => {

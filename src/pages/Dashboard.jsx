@@ -12,6 +12,7 @@ import {
   CheckCircle,
   XCircle,
   UserCheck,
+  UserPlus,
   Building,
   Heart,
   BookOpen,
@@ -576,6 +577,97 @@ const TodayStats = ({
 
 import { useGetQuery } from "../api/apiCall";
 import API_ENDPOINTS from "../api/apiEndpoint";
+import { Link } from "react-router-dom";
+import { formatDateTime } from "../utils/formatters";
+
+const TodaysRegisteredUsers = ({ users = [], count = 0 }) => {
+  const todayLabel = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return (
+    <div className={chartCardClass}>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className={sectionTitleClass}>Today&apos;s registered users</h3>
+          <p className="mt-1 text-sm text-slate-500">{todayLabel}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-600/10">
+            {count} new {count === 1 ? "user" : "users"}
+          </span>
+          <Link
+            to="/users"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            View all users →
+          </Link>
+        </div>
+      </div>
+
+      {users.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-12 text-center">
+          <Users className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+          <p className="text-sm font-medium text-slate-600">No users registered today yet</p>
+          <p className="mt-1 text-xs text-slate-500">
+            New signups will appear here as they register.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/80">
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Email
+                </th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Phone
+                </th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Age
+                </th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  City
+                </th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Registered at
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {users.map((user) => (
+                <tr key={user._id} className="bg-white hover:bg-slate-50/50">
+                  <td className="px-4 py-3 font-medium capitalize text-slate-900">
+                    {user.name || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{user.email || "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">{user.mobile || "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">{user.age ?? "—"}</td>
+                  <td className="px-4 py-3 capitalize text-slate-600">{user.city || "—"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-500">
+                    {formatDateTime(user.createdAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {count > users.length && (
+            <p className="border-t border-slate-100 bg-slate-50/50 px-4 py-2 text-xs text-slate-500">
+              Showing latest {users.length} of {count} users registered today.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Dashboard = () => {
   const {
@@ -637,7 +729,7 @@ const Dashboard = () => {
         </p>
       </div>
       <div>
-        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard
             icon={Users}
             title="Total users"
@@ -649,6 +741,13 @@ const Dashboard = () => {
             title="Total categories"
             value={dashboardData.totalCategories?.toLocaleString() || "0"}
             trend={8}
+          />
+          <StatCard
+            icon={UserPlus}
+            title="Registered today"
+            value={(
+              dashboardData.todayRegisteredUsersCount ?? 0
+            ).toLocaleString()}
           />
           <StatCard
             icon={UserCheck}
@@ -663,6 +762,11 @@ const Dashboard = () => {
             trend={20}
           />
         </div>
+
+        <TodaysRegisteredUsers
+          users={dashboardData.todayRegisteredUsers || []}
+          count={dashboardData.todayRegisteredUsersCount ?? 0}
+        />
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Charts Section - Left Side */}

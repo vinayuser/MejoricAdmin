@@ -1,139 +1,226 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { useGetQuery, useDeleteMutation } from "../../api/apiCall";
+import axiosInstance from "../../api/axiosInstance";
+import API_ENDPOINTS from "../../api/apiEndpoint";
+import { Mail, Phone } from "lucide-react";
+import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
 import Table from "../../components/UI/Table";
+import MentorViewModal from "../../components/mentor/MentorViewModal";
 
 const MentorList = () => {
-  const [mentors] = useState([
-    {
-      _id: "1",
-      name: "John Smith",
-      email: "john@example.com",
-      phone: "+1234567890",
-      expertise: "Web Development, React, Node.js",
-      experience: "5 years",
-      createdAt: "2024-01-15",
-    },
-    {
-      _id: "2",
-      name: "Sarah Johnson",
-      email: "sarah@example.com",
-      phone: "+1234567891",
-      expertise: "Data Science, Machine Learning",
-      experience: "7 years",
-      createdAt: "2024-02-10",
-    },
-    {
-      _id: "3",
-      name: "Michael Brown",
-      email: "michael@example.com",
-      phone: "+1234567892",
-      expertise: "Mobile Development, Flutter",
-      experience: "3 years",
-      createdAt: "2024-03-05",
-    },
-    {
-      _id: "4",
-      name: "Emily Davis",
-      email: "emily@example.com",
-      phone: "+1234567893",
-      expertise: "UI/UX Design, Figma",
-      experience: "4 years",
-      createdAt: "2024-03-20",
-    },
-    {
-      _id: "5",
-      name: "David Wilson",
-      email: "david@example.com",
-      phone: "+1234567894",
-      expertise: "Python, Django, AI",
-      experience: "6 years",
-      createdAt: "2024-04-01",
-    },
-  ]);
+  const location = useLocation();
   const navigate = useNavigate();
+  const [viewMentor, setViewMentor] = useState(null);
+  const { data, isLoading, error, refetch } = useGetQuery(
+    `${API_ENDPOINTS.MENTORS.GET_ALL}?page=1&limit=100`,
+    ["mentors"],
+  );
+
+  useEffect(() => {
+    refetch();
+  }, [location.state?.fromEdit, location.state?.fromCreate, refetch]);
+
+  const deleteMutation = useDeleteMutation(API_ENDPOINTS.MENTORS.DELETE, {
+    onSuccess: () => {
+      toast.success("Mentor deleted successfully!");
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(
+        "Failed to delete mentor: " + (err?.message || "Unknown error"),
+      );
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (mentorId) => {
+      const response = await axiosInstance.put(
+        `${API_ENDPOINTS.MENTORS.RESET_PASSWORD}/${mentorId}`,
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Password reset to 00000000");
+    },
+    onError: (err) => {
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to reset password",
+      );
+    },
+  });
+
+  const handleDelete = (mentor) => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: `You are about to remove ${mentor.name}. This action cannot be undone!`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#7c3aed",
+      cancelButtonColor: "#ef4444",
+      confirmButtonText: "Yes, delete it!",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        deleteMutation.mutate(mentor._id);
+      }
+    });
+  };
+
+  const handleResetPassword = (mentor) => {
+    Swal.fire({
+      title: "Reset password?",
+      html: `Reset password for <strong>${mentor.name}</strong> to <code>00000000</code>?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#7c3aed",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, reset it",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        resetPasswordMutation.mutate(mentor._id);
+      }
+    });
+  };
 
   const columns = [
     {
-      key: "image",
-      title: "Image",
+      key: "profile",
+      title: "Profile",
       render: (mentor) => (
-        <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
-          {mentor.name.charAt(0)}
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 overflow-hidden rounded-full border border-purple-100 bg-purple-50">
+            {mentor.image ? (
+              <img
+                src={mentor.image}
+                alt={mentor.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm font-bold text-purple-400">
+                {mentor.name?.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-base font-semibold text-slate-900 capitalize">
+              {mentor.name}
+            </span>
+            <span className="text-xs text-purple-600 font-medium">Mentor</span>
+          </div>
         </div>
       ),
     },
     {
-      key: "name",
-      title: "Name",
-      render: (mentor) => <span className="font-medium">{mentor.name}</span>,
+      key: "contact",
+      title: "Contact",
+      render: (mentor) => (
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5 text-sm text-slate-600">
+            <Mail className="h-3 w-3 text-slate-400" />
+            <span className="truncate max-w-[150px]">{mentor.email || "—"}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm text-slate-600">
+            <Phone className="h-3 w-3 text-slate-400" />
+            <span>{mentor.mobile || "—"}</span>
+          </div>
+        </div>
+      ),
     },
     {
-      key: "email",
-      title: "Email",
+      key: "mentorType",
+      title: "Type",
       render: (mentor) => (
-        <span className="block max-w-[180px] truncate" title={mentor.email}>
-          {mentor.email}
+        <span
+          className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold capitalize ${
+            mentor.mentor?.mentorType === "professional"
+              ? "bg-blue-50 text-blue-700"
+              : "bg-purple-50 text-purple-700"
+          }`}
+        >
+          {mentor.mentor?.mentorType || "—"}
         </span>
       ),
     },
     {
-      key: "phone",
-      title: "Phone",
-      render: (mentor) => <span>{mentor.phone}</span>,
-    },
-    {
-      key: "expertise",
-      title: "Expertise",
+      key: "specializations",
+      title: "Specializations",
       render: (mentor) => (
-        <span className="max-w-xs truncate">{mentor.expertise}</span>
+        <div className="flex flex-wrap gap-1 max-w-[220px]">
+          {(mentor.mentor?.specifications || []).slice(0, 3).map((spec) => (
+            <span
+              key={spec}
+              className="rounded-md bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700"
+            >
+              {spec}
+            </span>
+          ))}
+          {(mentor.mentor?.specifications || []).length === 0 && (
+            <span className="text-slate-400 text-sm">—</span>
+          )}
+        </div>
       ),
     },
     {
       key: "experience",
       title: "Experience",
-      render: (mentor) => <span>{mentor.experience}</span>,
+      render: (mentor) => (
+        <span className="text-sm text-slate-700">
+          {mentor.mentor?.experience != null
+            ? `${mentor.mentor.experience} yrs`
+            : "—"}
+        </span>
+      ),
     },
     {
-      key: "createdAt",
-      title: "Created At",
-      render: (mentor) => mentor.createdAt,
+      key: "status",
+      title: "Status",
+      render: (mentor) => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider ${
+            mentor.isActive
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-rose-50 text-rose-700"
+          }`}
+        >
+          {mentor.isActive ? "Active" : "Inactive"}
+        </span>
+      ),
     },
   ];
 
-  const handleView = (mentor) => {
-    console.log("View mentor:", mentor);
-  };
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+        Failed to load mentors: {error?.message}
+      </div>
+    );
+  }
 
-  const handleEdit = (mentor) => {
-    console.log("Edit mentor:", mentor);
-  };
-
-  const handleDelete = (mentor) => {
-    if (window.confirm(`Are you sure you want to delete ${mentor.name}?`)) {
-      console.log("Delete mentor:", mentor);
-    }
-  };
-
-  const handleAddNew = () => {
-    navigate("/mentor/add");
-  };
+  const mentors = data?.data?.data || [];
 
   return (
-    <div className="p-4">
+    <div className="space-y-6">
       <Table
-        title="Mentor Management"
-        addButtonText="Add New Mentor"
+        title="Mentors"
+        description={`Total ${data?.data?.total || 0} mentors found`}
+        addButtonText="Add Mentor"
         columns={columns}
         data={mentors}
-        onAddNew={handleAddNew}
-        onView={handleView}
-        onEdit={handleEdit}
+        onAddNew={() => navigate("/mentor/add")}
+        onView={(mentor) => setViewMentor(mentor)}
+        onEdit={(mentor) => navigate(`/mentor/edit/${mentor._id}`)}
+        onResetPassword={handleResetPassword}
         onDelete={handleDelete}
-        isLoading={false}
+        isLoading={isLoading}
       />
-      <div className="mt-4 text-sm text-gray-600">
-        Showing {mentors.length} mentors
-      </div>
+
+      {viewMentor && (
+        <MentorViewModal mentor={viewMentor} onClose={() => setViewMentor(null)} />
+      )}
     </div>
   );
 };

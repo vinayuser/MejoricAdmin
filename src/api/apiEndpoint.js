@@ -25,9 +25,10 @@ const API_ENDPOINTS = {
   MENTORS: {
     CREATE: "/mentors/create",
     GET_ALL: "/mentors/getAll",
-    GET_ONE: "/mentors/get/:id",
-    UPDATE: "/mentors/update/:id",
-    DELETE: "/mentors/delete/:id",
+    GET_ONE: "/mentors/get",
+    UPDATE: "/mentors/update",
+    RESET_PASSWORD: "/mentors/reset-password",
+    DELETE: "/users/delete?userId=",
   },
   MATES: {
     CREATE: "/mates/create",
@@ -42,6 +43,9 @@ const API_ENDPOINTS = {
     GET_ONE: "/mentees/get/:id",
     UPDATE: "/mentees/update/:id",
     DELETE: "/mentees/delete/:id",
+  },
+  SMS: {
+    BULK: "/sms/bulk",
   },
 };
 

@@ -1,283 +1,244 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, User, Mail, Phone, Briefcase, BookOpen, Globe } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  Save,
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Image as ImageIcon,
+  Briefcase,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
+import axiosInstance from "../../api/axiosInstance";
+import API_ENDPOINTS from "../../api/apiEndpoint";
+import {
+  MENTOR_LANGUAGE_OPTIONS,
+  MENTOR_SPECIFICATION_OPTIONS,
+  MENTOR_TYPE_OPTIONS,
+} from "./mentorFormOptions";
 
 const MentorAdd = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
-    language: "",
-    expertise: "",
-    experience: "",
-    perMinRate: "",
+    mobile: "",
+    password: "00000000",
     bio: "",
+    experience: 1,
+    specifications: [],
+    languages: [],
+    mentorType: "emotional",
+    image: null,
   });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    if (!formData.name.trim()) newErrors.name = "Name is required";
+    if (!formData.email.trim() && !formData.mobile.trim()) {
+      newErrors.email = "Email or mobile is required";
+    } else if (formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Email is invalid";
     }
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone is required";
+    if (!formData.password.trim()) newErrors.password = "Password is required";
+    if (formData.languages.length === 0) {
+      newErrors.languages = "Select at least one language";
     }
-    if (!formData.expertise.trim()) {
-      newErrors.expertise = "Expertise is required";
+    if (!formData.mentorType) {
+      newErrors.mentorType = "Select mentor type";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      // Static - just show success and redirect
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    try {
+      const data = new FormData();
+      data.append("name", formData.name);
+      if (formData.email) data.append("email", formData.email);
+      if (formData.mobile) data.append("mobile", formData.mobile);
+      data.append("password", formData.password);
+      data.append("mentorType", formData.mentorType);
+      data.append("bio", formData.bio || "");
+      data.append("experience", Number(formData.experience) || 0);
+      formData.languages.forEach((lang) => data.append("languages", lang));
+      formData.specifications.forEach((spec) =>
+        data.append("specifications", spec),
+      );
+      if (formData.image) data.append("image", formData.image);
+
+      await axiosInstance.post(API_ENDPOINTS.MENTORS.CREATE, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["mentors"] });
       toast.success("Mentor added successfully!");
-      navigate("/mentors");
+      navigate("/mentors", { state: { fromCreate: true } });
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "Failed to add mentor";
+      toast.error(errorMessage);
+      setErrors({ apiError: errorMessage });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const toggleArrayValue = (field, value) => {
+    setFormData((prev) => {
+      const current = prev[field];
+      return {
+        ...prev,
+        [field]: current.includes(value)
+          ? current.filter((item) => item !== value)
+          : [...current, value],
+      };
+    });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) setFormData((prev) => ({ ...prev, image: file }));
   };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center mb-6">
-          <button
-            onClick={() => navigate("/mentors")}
-            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back to Mentors
-          </button>
-        </div>
-        {/* Form Card */}
+        <button
+          onClick={() => navigate("/mentors")}
+          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors mb-6"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back to Mentors List
+        </button>
+
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="flex items-center mb-6">
-            <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg mr-4">
+            <div className="p-3 bg-gradient-to-r from-purple-600 to-violet-500 rounded-lg mr-4">
               <User className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-                Add New Mentor
-              </h1>
+              <h1 className="text-2xl font-bold text-slate-900">Add Mentor</h1>
               <p className="text-gray-500 text-sm">
-                Fill in the details to create a new mentor profile
+                Create a mentor account for appointment bookings
               </p>
             </div>
           </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className={`pl-10 w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
-                    errors.name ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="Enter mentor's full name"
-                />
+            {errors.apiError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {errors.apiError}
               </div>
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-500">{errors.name}</p>
-              )}
-            </div>
+            )}
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`pl-10 w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
-                    errors.email ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="Enter mentor's email"
-                />
-              </div>
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
-              )}
-            </div>
+            <Field label="Full Name" required error={errors.name}>
+              <IconInput icon={User} name="name" value={formData.name} onChange={handleChange} placeholder="Enter mentor name" error={errors.name} />
+            </Field>
 
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className={`pl-10 w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
-                    errors.phone ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="Enter phone number"
-                />
-              </div>
-              {errors.phone && (
-                <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-              )}
-            </div>
+            <Field label="Email Address" error={errors.email}>
+              <IconInput icon={Mail} type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Enter email" error={errors.email} />
+            </Field>
 
-            {/* Language */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Preferred Language
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Globe className="h-5 w-5 text-gray-400" />
-                </div>
-                <select
-                  name="language"
-                  value={formData.language}
-                  onChange={handleChange}
-                  className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all appearance-none bg-white"
-                >
-                  <option value="">Select preferred language</option>
-                  <option value="English">English</option>
-                  <option value="Hindi">Hindi</option>
-                  <option value="Marathi">Marathi</option>
-                  <option value="Gujarati">Gujarati</option>
-                  <option value="Tamil">Tamil</option>
-                  <option value="Telugu">Telugu</option>
-                  <option value="Kannada">Kannada</option>
-                  <option value="Malayalam">Malayalam</option>
-                  <option value="Bengali">Bengali</option>
-                  <option value="Punjabi">Punjabi</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
+            <Field label="Mobile Number">
+              <IconInput icon={Phone} type="tel" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Enter mobile number" />
+            </Field>
 
-            {/* Expertise */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Expertise <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <BookOpen className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  name="expertise"
-                  value={formData.expertise}
-                  onChange={handleChange}
-                  className={`pl-10 w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
-                    errors.expertise ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="e.g., Web Development, Data Science"
-                />
-              </div>
-              {errors.expertise && (
-                <p className="mt-1 text-sm text-red-500">{errors.expertise}</p>
-              )}
-            </div>
+            <Field label="Password" required error={errors.password}>
+              <IconInput icon={Lock} type="text" name="password" value={formData.password} onChange={handleChange} placeholder="Default: 00000000" error={errors.password} />
+              <p className="text-xs text-slate-500 mt-1">
+                Default password is <code>00000000</code>. Mentor can change it after login.
+              </p>
+            </Field>
 
-            {/* Experience */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Years of Experience
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Briefcase className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  name="experience"
-                  value={formData.experience}
-                  onChange={handleChange}
-                  className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder="e.g., 5 years"
-                />
-              </div>
-            </div>
+            <Field label="Mentor Type" required error={errors.mentorType}>
+              <select
+                name="mentorType"
+                value={formData.mentorType}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none ${
+                  errors.mentorType ? "border-red-500" : "border-gray-300"
+                }`}
+              >
+                {MENTOR_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
 
-            {/* Per Min Rate */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Per Min Rate (₹)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-400 font-medium">₹</span>
-                </div>
-                <input
-                  type="number"
-                  name="perMinRate"
-                  value={formData.perMinRate}
-                  onChange={handleChange}
-                  className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder="Enter rate per minute"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-            </div>
-
-            {/* Bio */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bio / Description
-              </label>
+            <Field label="Bio">
               <textarea
                 name="bio"
                 value={formData.bio}
                 onChange={handleChange}
-                rows="4"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
-                placeholder="Tell us about the mentor..."
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="Short mentor bio"
               />
-            </div>
+            </Field>
 
-            {/* Submit Button */}
+            <Field label="Experience (years)">
+              <IconInput icon={Briefcase} type="number" name="experience" min="0" value={formData.experience} onChange={handleChange} placeholder="Years of experience" />
+            </Field>
+
+            <Field label="Languages" required error={errors.languages}>
+              <ChipGroup
+                options={MENTOR_LANGUAGE_OPTIONS}
+                selected={formData.languages}
+                onToggle={(value) => toggleArrayValue("languages", value)}
+                activeClass="bg-purple-600 text-white border-purple-600"
+              />
+              {errors.languages && <p className="mt-1 text-sm text-red-500">{errors.languages}</p>}
+            </Field>
+
+            <Field label="Specializations">
+              <ChipGroup
+                options={MENTOR_SPECIFICATION_OPTIONS}
+                selected={formData.specifications}
+                onToggle={(value) => toggleArrayValue("specifications", value)}
+                activeClass="bg-purple-600 text-white border-purple-600"
+              />
+            </Field>
+
+            <Field label="Profile Image">
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                <ImageIcon className="w-8 h-8 mb-2 text-gray-400" />
+                <span className="text-sm text-gray-500">Click to upload image</span>
+                <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+              </label>
+              {formData.image && (
+                <p className="mt-2 text-sm text-green-600">Selected: {formData.image.name}</p>
+              )}
+            </Field>
+
             <div className="flex justify-end pt-4">
               <button
                 type="submit"
-                className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 focus:ring-4 focus:ring-blue-200 transition-all"
+                disabled={isSubmitting}
+                className="flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-500 text-white rounded-lg hover:from-purple-700 hover:to-violet-600 disabled:opacity-50"
               >
                 <Save className="w-5 h-5 mr-2" />
-                Save Mentor
+                {isSubmitting ? "Saving..." : "Save Mentor"}
               </button>
             </div>
           </form>
@@ -286,5 +247,56 @@ const MentorAdd = () => {
     </div>
   );
 };
+
+function Field({ label, required, error, children }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+      {error && !children?.props?.error && (
+        <p className="mt-1 text-sm text-red-500">{error}</p>
+      )}
+    </div>
+  );
+}
+
+function IconInput({ icon: Icon, error, className = "", ...props }) {
+  return (
+    <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <Icon className="h-5 w-5 text-gray-400" />
+      </div>
+      <input
+        {...props}
+        className={`pl-10 w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none ${
+          error ? "border-red-500" : "border-gray-300"
+        } ${className}`}
+      />
+    </div>
+  );
+}
+
+function ChipGroup({ options, selected, onToggle, activeClass }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => onToggle(option)}
+          className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+            selected.includes(option)
+              ? activeClass
+              : "bg-white text-gray-700 border-gray-300 hover:border-purple-400"
+          }`}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default MentorAdd;
