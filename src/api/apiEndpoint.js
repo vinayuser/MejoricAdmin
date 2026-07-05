@@ -47,6 +47,13 @@ const API_ENDPOINTS = {
   SMS: {
     BULK: "/sms/bulk",
   },
+  MATE_AVAILABILITY: {
+    OVERVIEW: "/mate-availability/tracking/overview",
+    ONLINE: "/mate-availability/tracking/online",
+    ACTIVITY: "/mate-availability/tracking/activity",
+    SUMMARY: "/mate-availability/tracking/summary",
+    DAILY_STATS: "/mate-availability/tracking",
+  },
 };
 
 export default API_ENDPOINTS;

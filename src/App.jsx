@@ -23,6 +23,7 @@ import MainLayout from "./components/Layout/MainLayout";
 import MenteeAdd from "./pages/mentee/MenteeAdd";
 import MateAdd from "./pages/mate/MateAdd";
 import MateList from "./pages/mate/MateList";
+import MateTracking from "./pages/mate/MateTracking";
 import MateEdit from "./pages/mate/MateEdit";
 import MentorList from "./pages/mentor/MentorList";
 import MentorAdd from "./pages/mentor/MentorAdd";
@@ -70,6 +71,7 @@ const App = () => {
                 <Route path="/mentee/add" element={<MenteeAdd />} />
                 <Route path="/mate/add" element={<MateAdd />} />
                 <Route path="/mates" element={<MateList />} />
+                <Route path="/mates/tracking" element={<MateTracking />} />
                 <Route path="/mate/edit/:id" element={<MateEdit />} />
                 <Route path="/mentors" element={<MentorList />} />
                 <Route path="/mentor/add" element={<MentorAdd />} />

@@ -20,6 +20,7 @@ const Sidebar = () => {
       title: "Content",
       items: [
         { name: "Mates", path: "/mates", icon: <MatesIcon /> },
+        { name: "Mate tracking", path: "/mates/tracking", icon: <TrackingIcon /> },
         { name: "Mentors", path: "/mentors", icon: <MentorsIcon /> },
         { name: "Gallery", path: "/gallery", icon: <GalleryIcon /> },
       ],
@@ -55,7 +56,9 @@ const Sidebar = () => {
                 const isActive =
                   location.pathname === item.path ||
                   (item.path === "/mentors" &&
-                    location.pathname.startsWith("/mentor"));
+                    location.pathname.startsWith("/mentor")) ||
+                  (item.path === "/mates/tracking" &&
+                    location.pathname.startsWith("/mates/tracking"));
                 return (
                   <Link
                     key={item.name}
@@ -126,6 +129,12 @@ const MatesIcon = () => (
 const MentorsIcon = () => (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+  </svg>
+);
+
+const TrackingIcon = () => (
+  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
   </svg>
 );
 

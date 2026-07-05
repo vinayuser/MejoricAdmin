@@ -5,7 +5,7 @@ import {
   useDeleteMutation,
   usePutMutation,
 } from "../../api/apiCall";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "../../api/axiosInstance";
 import API_ENDPOINTS from "../../api/apiEndpoint";
 import {
@@ -25,6 +25,7 @@ import UserHistoryModal from "../../components/UserHistoryModal";
 const MateList = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useGetQuery(
     `/users/getAll?page=1&limit=100&role=mate`,
     ["mates"],
@@ -42,6 +43,7 @@ const MateList = () => {
     onSuccess: () => {
       toast.success("Status updated!");
       refetch();
+      queryClient.invalidateQueries({ queryKey: ["mate-tracking"] });
     },
     onError: (err) => {
       toast.error("Update failed: " + (err?.message || "Unknown error"));
@@ -166,7 +168,10 @@ const MateList = () => {
                 e.stopPropagation();
                 updateStatusMutation.mutate({
                   userId: mate._id,
-                  body: { isOnline: !isOnline },
+                  body: {
+                    isOnline: !isOnline,
+                    availabilitySource: "admin_panel",
+                  },
                 });
               }}
               disabled={updateStatusMutation.isPending}
