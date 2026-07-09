@@ -14,11 +14,9 @@ import axiosInstance from "../../api/axiosInstance";
 import API_ENDPOINTS from "../../api/apiEndpoint";
 import { useGetQuery } from "../../api/apiCall";
 import Loader from "../../components/UI/Loader";
-import {
-  MENTOR_LANGUAGE_OPTIONS,
-  MENTOR_SPECIFICATION_OPTIONS,
-  MENTOR_TYPE_OPTIONS,
-} from "./mentorFormOptions";
+import { MENTOR_LANGUAGE_OPTIONS, MENTOR_TYPE_OPTIONS } from "./mentorFormOptions";
+import MentorCategorySelect from "../../components/mentor/MentorCategorySelect";
+import { resolveMentorDomains } from "../../data/mentorPlatformConfig";
 
 const MentorEdit = () => {
   const navigate = useNavigate();
@@ -29,12 +27,15 @@ const MentorEdit = () => {
     mobile: "",
     bio: "",
     experience: "",
-    specifications: [],
+    domainIds: [],
     languages: [],
     mentorType: "emotional",
     image: null,
     imagePreview: "",
     isActive: true,
+    audioCallPrice: "",
+    videoCallPrice: "",
+    video60CallPrice: "",
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,12 +54,32 @@ const MentorEdit = () => {
         mobile: mentor.mobile ? String(mentor.mobile) : "",
         bio: mentor.mentor?.bio || "",
         experience: mentor.mentor?.experience ?? "",
-        specifications: mentor.mentor?.specifications || [],
+        domainIds:
+          mentor.mentor?.domainIds?.length
+            ? mentor.mentor.domainIds
+            : mentor.mentor?.domainId
+              ? [mentor.mentor.domainId]
+              : [],
         languages: (mentor.mentor?.languages || []).map((l) => l.toLowerCase()),
         mentorType: mentor.mentor?.mentorType || "emotional",
         image: null,
         imagePreview: mentor.image || "",
         isActive: mentor.isActive !== false,
+        audioCallPrice: mentor.mentor?.audioCallPrice
+          ? Number(mentor.mentor.audioCallPrice) > 100
+            ? Math.round(Number(mentor.mentor.audioCallPrice) / 45)
+            : mentor.mentor.audioCallPrice
+          : "",
+        videoCallPrice: mentor.mentor?.videoCallPrice
+          ? Number(mentor.mentor.videoCallPrice) > 100
+            ? Math.round(Number(mentor.mentor.videoCallPrice) / 45)
+            : mentor.mentor.videoCallPrice
+          : "",
+        video60CallPrice: mentor.mentor?.video60CallPrice
+          ? Number(mentor.mentor.video60CallPrice) > 100
+            ? Math.round(Number(mentor.mentor.video60CallPrice) / 45)
+            : mentor.mentor.video60CallPrice
+          : "",
       });
     }
   }, [mentorData]);
@@ -69,6 +90,9 @@ const MentorEdit = () => {
     if (formData.languages.length === 0) {
       newErrors.languages = "Select at least one language";
     }
+    if (!formData.domainIds.length) {
+      newErrors.domainIds = "Select at least one category";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -76,6 +100,15 @@ const MentorEdit = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
+
+    const resolvedDomains = resolveMentorDomains(formData.mentorType, formData.domainIds);
+    if (resolvedDomains.length !== formData.domainIds.length) {
+      setErrors((prev) => ({
+        ...prev,
+        domainIds: "Invalid category for selected mentor type",
+      }));
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -85,10 +118,15 @@ const MentorEdit = () => {
       data.append("experience", Number(formData.experience) || 0);
       data.append("isActive", formData.isActive);
       data.append("mentorType", formData.mentorType);
+      formData.domainIds.forEach((id) => data.append("domainIds", id));
+      resolvedDomains.forEach((d) => data.append("domains", d.name));
+      data.append("domainId", resolvedDomains[0].id);
+      data.append("domain", resolvedDomains[0].name);
       formData.languages.forEach((lang) => data.append("languages", lang));
-      formData.specifications.forEach((spec) =>
-        data.append("specifications", spec),
-      );
+      resolvedDomains.forEach((d) => data.append("specifications", d.name));
+      if (formData.audioCallPrice !== "") data.append("audioCallPrice", formData.audioCallPrice);
+      if (formData.videoCallPrice !== "") data.append("videoCallPrice", formData.videoCallPrice);
+      if (formData.video60CallPrice !== "") data.append("video60CallPrice", formData.video60CallPrice);
       if (formData.image instanceof File) {
         data.append("image", formData.image);
       }
@@ -108,10 +146,29 @@ const MentorEdit = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      };
+      if (name === "mentorType") {
+        next.domainIds = [];
+      }
+      return next;
+    });
+  };
+
+  const toggleCategory = (domainId) => {
+    setFormData((prev) => {
+      const current = prev.domainIds;
+      return {
+        ...prev,
+        domainIds: current.includes(domainId)
+          ? current.filter((id) => id !== domainId)
+          : [...current, domainId],
+      };
+    });
+    if (errors.domainIds) setErrors((prev) => ({ ...prev, domainIds: "" }));
   };
 
   const toggleArrayValue = (field, value) => {
@@ -205,9 +262,7 @@ const MentorEdit = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                 <input
@@ -220,9 +275,7 @@ const MentorEdit = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mobile
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Mobile</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                 <input
@@ -236,8 +289,36 @@ const MentorEdit = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bio
+                Mentor Type <span className="text-red-500">*</span>
               </label>
+              <select
+                name="mentorType"
+                value={formData.mentorType}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+              >
+                {MENTOR_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Categories <span className="text-red-500">*</span>
+              </label>
+              <MentorCategorySelect
+                mentorType={formData.mentorType}
+                selected={formData.domainIds}
+                onToggle={toggleCategory}
+                error={errors.domainIds}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
               <textarea
                 name="bio"
                 value={formData.bio}
@@ -264,22 +345,50 @@ const MentorEdit = () => {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Audio price per minute (₹)
+                </label>
+                <input
+                  type="number"
+                  name="audioCallPrice"
+                  min="1"
+                  value={formData.audioCallPrice}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="12"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Video price per minute (₹)
+                </label>
+                <input
+                  type="number"
+                  name="videoCallPrice"
+                  min="1"
+                  value={formData.videoCallPrice}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="15"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mentor Type <span className="text-red-500">*</span>
+                60 min video price per minute (optional)
               </label>
-              <select
-                name="mentorType"
-                value={formData.mentorType}
+              <input
+                type="number"
+                name="video60CallPrice"
+                min="1"
+                value={formData.video60CallPrice}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-              >
-                {MENTOR_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                placeholder="Same as video rate"
+              />
             </div>
 
             <div>
@@ -292,41 +401,19 @@ const MentorEdit = () => {
                     key={lang}
                     type="button"
                     onClick={() => toggleArrayValue("languages", lang)}
-                    className={`px-4 py-2 rounded-lg border text-sm ${
+                    className={`px-4 py-2 rounded-lg border text-sm capitalize ${
                       formData.languages.includes(lang)
                         ? "bg-purple-600 text-white border-purple-600"
                         : "bg-white text-gray-700 border-gray-300"
                     }`}
                   >
-                    {lang.charAt(0).toUpperCase() + lang.slice(1)}
+                    {lang}
                   </button>
                 ))}
               </div>
               {errors.languages && (
                 <p className="mt-1 text-sm text-red-500">{errors.languages}</p>
               )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Specializations
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {MENTOR_SPECIFICATION_OPTIONS.map((spec) => (
-                  <button
-                    key={spec}
-                    type="button"
-                    onClick={() => toggleArrayValue("specifications", spec)}
-                    className={`px-3 py-2 rounded-lg border text-sm ${
-                      formData.specifications.includes(spec)
-                        ? "bg-purple-600 text-white border-purple-600"
-                        : "bg-white text-gray-700 border-gray-300"
-                    }`}
-                  >
-                    {spec}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer">

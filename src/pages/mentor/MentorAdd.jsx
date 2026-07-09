@@ -14,11 +14,9 @@ import {
 import { toast } from "react-hot-toast";
 import axiosInstance from "../../api/axiosInstance";
 import API_ENDPOINTS from "../../api/apiEndpoint";
-import {
-  MENTOR_LANGUAGE_OPTIONS,
-  MENTOR_SPECIFICATION_OPTIONS,
-  MENTOR_TYPE_OPTIONS,
-} from "./mentorFormOptions";
+import { MENTOR_LANGUAGE_OPTIONS, MENTOR_TYPE_OPTIONS } from "./mentorFormOptions";
+import MentorCategorySelect from "../../components/mentor/MentorCategorySelect";
+import { resolveMentorDomains } from "../../data/mentorPlatformConfig";
 
 const MentorAdd = () => {
   const navigate = useNavigate();
@@ -30,10 +28,13 @@ const MentorAdd = () => {
     password: "00000000",
     bio: "",
     experience: 1,
-    specifications: [],
+    domainIds: [],
     languages: [],
     mentorType: "emotional",
     image: null,
+    audioCallPrice: "12",
+    videoCallPrice: "15",
+    video60CallPrice: "",
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +54,9 @@ const MentorAdd = () => {
     if (!formData.mentorType) {
       newErrors.mentorType = "Select mentor type";
     }
+    if (!formData.domainIds.length) {
+      newErrors.domainIds = "Select at least one category";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -60,6 +64,15 @@ const MentorAdd = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
+
+    const resolvedDomains = resolveMentorDomains(formData.mentorType, formData.domainIds);
+    if (resolvedDomains.length !== formData.domainIds.length) {
+      setErrors((prev) => ({
+        ...prev,
+        domainIds: "Invalid category for selected mentor type",
+      }));
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -69,12 +82,17 @@ const MentorAdd = () => {
       if (formData.mobile) data.append("mobile", formData.mobile);
       data.append("password", formData.password);
       data.append("mentorType", formData.mentorType);
+      formData.domainIds.forEach((id) => data.append("domainIds", id));
+      resolvedDomains.forEach((d) => data.append("domains", d.name));
+      data.append("domainId", resolvedDomains[0].id);
+      data.append("domain", resolvedDomains[0].name);
       data.append("bio", formData.bio || "");
       data.append("experience", Number(formData.experience) || 0);
       formData.languages.forEach((lang) => data.append("languages", lang));
-      formData.specifications.forEach((spec) =>
-        data.append("specifications", spec),
-      );
+      resolvedDomains.forEach((d) => data.append("specifications", d.name));
+      if (formData.audioCallPrice) data.append("audioCallPrice", formData.audioCallPrice);
+      if (formData.videoCallPrice) data.append("videoCallPrice", formData.videoCallPrice);
+      if (formData.video60CallPrice) data.append("video60CallPrice", formData.video60CallPrice);
       if (formData.image) data.append("image", formData.image);
 
       await axiosInstance.post(API_ENDPOINTS.MENTORS.CREATE, data, {
@@ -98,8 +116,27 @@ const MentorAdd = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "mentorType") {
+        next.domainIds = [];
+      }
+      return next;
+    });
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const toggleCategory = (domainId) => {
+    setFormData((prev) => {
+      const current = prev.domainIds;
+      return {
+        ...prev,
+        domainIds: current.includes(domainId)
+          ? current.filter((id) => id !== domainId)
+          : [...current, domainId],
+      };
+    });
+    if (errors.domainIds) setErrors((prev) => ({ ...prev, domainIds: "" }));
   };
 
   const toggleArrayValue = (field, value) => {
@@ -186,6 +223,18 @@ const MentorAdd = () => {
               </select>
             </Field>
 
+            <Field label="Categories" required error={errors.domainIds}>
+              <MentorCategorySelect
+                mentorType={formData.mentorType}
+                selected={formData.domainIds}
+                onToggle={toggleCategory}
+                error={errors.domainIds}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Select one or more categories. Same style as languages — tap to toggle.
+              </p>
+            </Field>
+
             <Field label="Bio">
               <textarea
                 name="bio"
@@ -201,6 +250,42 @@ const MentorAdd = () => {
               <IconInput icon={Briefcase} type="number" name="experience" min="0" value={formData.experience} onChange={handleChange} placeholder="Years of experience" />
             </Field>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Audio price per minute (₹)">
+                <IconInput
+                  icon={Briefcase}
+                  type="number"
+                  name="audioCallPrice"
+                  min="1"
+                  value={formData.audioCallPrice}
+                  onChange={handleChange}
+                  placeholder="12"
+                />
+              </Field>
+              <Field label="Video price per minute (₹)">
+                <IconInput
+                  icon={Briefcase}
+                  type="number"
+                  name="videoCallPrice"
+                  min="1"
+                  value={formData.videoCallPrice}
+                  onChange={handleChange}
+                  placeholder="15"
+                />
+              </Field>
+            </div>
+            <Field label="60 min video price per minute (optional)">
+              <IconInput
+                icon={Briefcase}
+                type="number"
+                name="video60CallPrice"
+                min="1"
+                value={formData.video60CallPrice}
+                onChange={handleChange}
+                placeholder="Same as video rate"
+              />
+            </Field>
+
             <Field label="Languages" required error={errors.languages}>
               <ChipGroup
                 options={MENTOR_LANGUAGE_OPTIONS}
@@ -209,15 +294,6 @@ const MentorAdd = () => {
                 activeClass="bg-purple-600 text-white border-purple-600"
               />
               {errors.languages && <p className="mt-1 text-sm text-red-500">{errors.languages}</p>}
-            </Field>
-
-            <Field label="Specializations">
-              <ChipGroup
-                options={MENTOR_SPECIFICATION_OPTIONS}
-                selected={formData.specifications}
-                onToggle={(value) => toggleArrayValue("specifications", value)}
-                activeClass="bg-purple-600 text-white border-purple-600"
-              />
             </Field>
 
             <Field label="Profile Image">
@@ -286,7 +362,7 @@ function ChipGroup({ options, selected, onToggle, activeClass }) {
           key={option}
           type="button"
           onClick={() => onToggle(option)}
-          className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+          className={`px-3 py-2 rounded-lg border text-sm transition-all capitalize ${
             selected.includes(option)
               ? activeClass
               : "bg-white text-gray-700 border-gray-300 hover:border-purple-400"

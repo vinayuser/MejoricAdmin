@@ -262,6 +262,15 @@ export default function MentorViewModal({ mentor, onClose }) {
                 }
               />
               <DetailField
+                label="Categories"
+                value={
+                  (mentor.mentor?.domains || []).join(", ") ||
+                  mentor.mentor?.domain ||
+                  mentor.mentor?.specifications?.[0]
+                }
+                className="sm:col-span-2"
+              />
+              <DetailField
                 label="Specializations"
                 value={(mentor.mentor?.specifications || []).join(", ")}
                 className="sm:col-span-2"

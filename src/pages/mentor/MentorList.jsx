@@ -146,23 +146,32 @@ const MentorList = () => {
       ),
     },
     {
-      key: "specializations",
-      title: "Specializations",
-      render: (mentor) => (
-        <div className="flex flex-wrap gap-1 max-w-[220px]">
-          {(mentor.mentor?.specifications || []).slice(0, 3).map((spec) => (
-            <span
-              key={spec}
-              className="rounded-md bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700"
-            >
-              {spec}
-            </span>
-          ))}
-          {(mentor.mentor?.specifications || []).length === 0 && (
-            <span className="text-slate-400 text-sm">—</span>
-          )}
-        </div>
-      ),
+      key: "category",
+      title: "Categories",
+      render: (mentor) => {
+        const labels =
+          mentor.mentor?.domains?.length
+            ? mentor.mentor.domains
+            : mentor.mentor?.domain
+              ? [mentor.mentor.domain]
+              : mentor.mentor?.specifications || [];
+        return (
+          <div className="flex flex-wrap gap-1 max-w-[260px]">
+            {labels.slice(0, 3).map((label) => (
+              <span
+                key={label}
+                className="rounded-md bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700"
+              >
+                {label}
+              </span>
+            ))}
+            {labels.length > 3 && (
+              <span className="text-[11px] text-slate-500">+{labels.length - 3}</span>
+            )}
+            {labels.length === 0 && <span className="text-slate-400 text-sm">—</span>}
+          </div>
+        );
+      },
     },
     {
       key: "experience",
