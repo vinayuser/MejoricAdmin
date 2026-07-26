@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,17 +10,30 @@ import {
   Briefcase,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "../../api/axiosInstance";
 import API_ENDPOINTS from "../../api/apiEndpoint";
 import { useGetQuery } from "../../api/apiCall";
 import Loader from "../../components/UI/Loader";
 import { MENTOR_LANGUAGE_OPTIONS, MENTOR_TYPE_OPTIONS } from "./mentorFormOptions";
 import MentorCategorySelect from "../../components/mentor/MentorCategorySelect";
-import { resolveMentorDomains } from "../../data/mentorPlatformConfig";
+import {
+  resolveDomainIdsFromNames,
+  resolveMentorDomains,
+} from "../../data/mentorPlatformConfig";
+
+const parseSessionAmount = (value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+};
 
 const MentorEdit = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const queryClient = useQueryClient();
+  const hydratedForId = useRef(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -45,45 +58,51 @@ const MentorEdit = () => {
     ["mentor", id],
   );
 
+  // Hydrate once per mentor id so API refetch does not overwrite typing
   useEffect(() => {
-    if (mentorData?.data) {
-      const mentor = mentorData.data;
-      setFormData({
-        name: mentor.name || "",
-        email: mentor.email || "",
-        mobile: mentor.mobile ? String(mentor.mobile) : "",
-        bio: mentor.mentor?.bio || "",
-        experience: mentor.mentor?.experience ?? "",
-        domainIds:
-          mentor.mentor?.domainIds?.length
-            ? mentor.mentor.domainIds
-            : mentor.mentor?.domainId
-              ? [mentor.mentor.domainId]
-              : [],
-        languages: (mentor.mentor?.languages || []).map((l) => l.toLowerCase()),
-        mentorType: mentor.mentor?.mentorType || "emotional",
-        image: null,
-        imagePreview: mentor.image || "",
-        isActive: mentor.isActive !== false,
-        audioCallPrice: (() => {
-          const n = Number(mentor.mentor?.audioCallPrice);
-          if (!Number.isFinite(n) || n <= 0) return "";
-          // ≤100 = legacy per-min → 45 min total; otherwise already session total
-          return String(n <= 100 ? Math.round(n * 45) : Math.round(n));
-        })(),
-        videoCallPrice: (() => {
-          const n = Number(mentor.mentor?.videoCallPrice);
-          if (!Number.isFinite(n) || n <= 0) return "";
-          return String(n <= 100 ? Math.round(n * 45) : Math.round(n));
-        })(),
-        video60CallPrice: (() => {
-          const n = Number(mentor.mentor?.video60CallPrice);
-          if (!Number.isFinite(n) || n <= 0) return "";
-          return String(n <= 100 ? Math.round(n * 60) : Math.round(n));
-        })(),
-      });
-    }
-  }, [mentorData]);
+    if (!mentorData?.data || !id) return;
+    if (hydratedForId.current === id) return;
+    hydratedForId.current = id;
+
+    const mentor = mentorData.data;
+    const mentorType = mentor.mentor?.mentorType || "emotional";
+    const rawAudio = Number(mentor.mentor?.audioCallPrice);
+    const rawVideo = Number(mentor.mentor?.videoCallPrice);
+    const rawVideo60 = Number(mentor.mentor?.video60CallPrice);
+
+    setFormData({
+      name: mentor.name || "",
+      email: mentor.email || "",
+      mobile: mentor.mobile ? String(mentor.mobile) : "",
+      bio: mentor.mentor?.bio || "",
+      experience: mentor.mentor?.experience ?? "",
+      domainIds: mentor.mentor?.domainIds?.length
+        ? mentor.mentor.domainIds
+        : mentor.mentor?.domainId
+          ? [mentor.mentor.domainId]
+          : resolveDomainIdsFromNames(
+              mentorType,
+              mentor.mentor?.specifications || [],
+            ),
+      languages: (mentor.mentor?.languages || []).map((l) => l.toLowerCase()),
+      mentorType,
+      image: null,
+      imagePreview: mentor.image || "",
+      isActive: mentor.isActive !== false,
+      audioCallPrice:
+        Number.isFinite(rawAudio) && rawAudio > 0 ? String(Math.round(rawAudio)) : "",
+      videoCallPrice:
+        Number.isFinite(rawVideo) && rawVideo > 0 ? String(Math.round(rawVideo)) : "",
+      video60CallPrice:
+        Number.isFinite(rawVideo60) && rawVideo60 > 0
+          ? String(Math.round(rawVideo60))
+          : "",
+    });
+  }, [mentorData, id]);
+
+  useEffect(() => {
+    hydratedForId.current = null;
+  }, [id]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -94,13 +113,30 @@ const MentorEdit = () => {
     if (!formData.domainIds.length) {
       newErrors.domainIds = "Select at least one category";
     }
+    if (parseSessionAmount(formData.audioCallPrice) == null) {
+      newErrors.audioCallPrice = "Enter audio session price";
+    }
+    if (parseSessionAmount(formData.videoCallPrice) == null) {
+      newErrors.videoCallPrice = "Enter video session price";
+    }
+    if (
+      formData.video60CallPrice !== "" &&
+      parseSessionAmount(formData.video60CallPrice) == null
+    ) {
+      newErrors.video60CallPrice = "Enter a valid 60 min price or leave empty";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      toast.error(
+        "Please fix the highlighted fields before saving",
+      );
+      return;
+    }
 
     const resolvedDomains = resolveMentorDomains(formData.mentorType, formData.domainIds);
     if (resolvedDomains.length !== formData.domainIds.length) {
@@ -108,8 +144,13 @@ const MentorEdit = () => {
         ...prev,
         domainIds: "Invalid category for selected mentor type",
       }));
+      toast.error("Invalid category for selected mentor type");
       return;
     }
+
+    const audio = parseSessionAmount(formData.audioCallPrice);
+    const video = parseSessionAmount(formData.videoCallPrice);
+    const video60 = parseSessionAmount(formData.video60CallPrice);
 
     setIsSubmitting(true);
     try {
@@ -117,42 +158,51 @@ const MentorEdit = () => {
       data.append("name", formData.name);
       data.append("bio", formData.bio || "");
       data.append("experience", Number(formData.experience) || 0);
-      data.append("isActive", formData.isActive);
+      data.append("isActive", String(Boolean(formData.isActive)));
       data.append("mentorType", formData.mentorType);
-      formData.domainIds.forEach((id) => data.append("domainIds", id));
+      formData.domainIds.forEach((domainId) => data.append("domainIds", domainId));
       resolvedDomains.forEach((d) => data.append("domains", d.name));
       data.append("domainId", resolvedDomains[0].id);
       data.append("domain", resolvedDomains[0].name);
       formData.languages.forEach((lang) => data.append("languages", lang));
       resolvedDomains.forEach((d) => data.append("specifications", d.name));
-      // Store session totals for 45 / 60 min formats (not per-minute)
-      if (formData.audioCallPrice !== "") {
-        data.append(
-          "audioCallPrice",
-          String(Math.max(1, Math.round(Number(formData.audioCallPrice)))),
-        );
-      }
-      if (formData.videoCallPrice !== "") {
-        data.append(
-          "videoCallPrice",
-          String(Math.max(1, Math.round(Number(formData.videoCallPrice)))),
-        );
-      }
-      if (formData.video60CallPrice !== "") {
-        data.append(
-          "video60CallPrice",
-          String(Math.max(1, Math.round(Number(formData.video60CallPrice)))),
-        );
+      // Full amount for the slot — stored exactly as entered
+      data.append("audioCallPrice", String(audio));
+      data.append("videoCallPrice", String(video));
+      if (video60 != null) {
+        data.append("video60CallPrice", String(video60));
       }
       if (formData.image instanceof File) {
         data.append("image", formData.image);
       }
 
-      await axiosInstance.put(`${API_ENDPOINTS.MENTORS.UPDATE}/${id}`, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await axiosInstance.put(
+        `${API_ENDPOINTS.MENTORS.UPDATE}/${id}`,
+        data,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
 
-      toast.success("Mentor updated successfully!");
+      // Confirm prices persisted (GET after PUT)
+      const verify = await axiosInstance.get(
+        `${API_ENDPOINTS.MENTORS.GET_ONE}/${id}`,
+      );
+      const saved = verify?.data?.data?.mentor || {};
+      const audioSaved = Number(saved.audioCallPrice);
+      const videoSaved = Number(saved.videoCallPrice);
+      if (audioSaved !== audio || videoSaved !== video) {
+        toast.error(
+          "Server did not save prices. Deploy the latest backend (mentor price update fix), then try again.",
+        );
+        return;
+      }
+
+      hydratedForId.current = null;
+      await queryClient.invalidateQueries({ queryKey: ["mentor", id] });
+      await queryClient.invalidateQueries({ queryKey: ["mentors"] });
+      toast.success(
+        res?.data?.message ||
+          `Prices saved: audio ₹${audioSaved}, video ₹${videoSaved}`,
+      );
       navigate("/mentors", { state: { fromEdit: true } });
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to update mentor");
@@ -371,11 +421,16 @@ const MentorEdit = () => {
                   type="number"
                   name="audioCallPrice"
                   min="1"
+                  step="1"
+                  inputMode="numeric"
                   value={formData.audioCallPrice}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                  placeholder="540"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="e.g. 20"
                 />
+                {errors.audioCallPrice && (
+                  <p className="mt-1 text-sm text-red-500">{errors.audioCallPrice}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -385,11 +440,16 @@ const MentorEdit = () => {
                   type="number"
                   name="videoCallPrice"
                   min="1"
+                  step="1"
+                  inputMode="numeric"
                   value={formData.videoCallPrice}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                  placeholder="675"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="e.g. 20"
                 />
+                {errors.videoCallPrice && (
+                  <p className="mt-1 text-sm text-red-500">{errors.videoCallPrice}</p>
+                )}
               </div>
             </div>
 
@@ -401,11 +461,16 @@ const MentorEdit = () => {
                 type="number"
                 name="video60CallPrice"
                 min="1"
+                step="1"
+                inputMode="numeric"
                 value={formData.video60CallPrice}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                placeholder="e.g. 900"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="e.g. 30"
               />
+              {errors.video60CallPrice && (
+                <p className="mt-1 text-sm text-red-500">{errors.video60CallPrice}</p>
+              )}
             </div>
 
             <div>

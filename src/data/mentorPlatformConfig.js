@@ -65,6 +65,20 @@ export function resolveMentorDomains(mentorType, domainIds = []) {
     .filter(Boolean);
 }
 
+/** Map stored specification names back to domain ids for admin edit forms. */
+export function resolveDomainIdsFromNames(mentorType, names = []) {
+  const list = Array.isArray(names) ? names : [names].filter(Boolean);
+  const domains = getMentorDomainsForType(mentorType);
+  const ids = [];
+  list.forEach((raw) => {
+    const name = String(raw || "").trim().toLowerCase();
+    if (!name) return;
+    const match = domains.find((d) => d.name.trim().toLowerCase() === name);
+    if (match && !ids.includes(match.id)) ids.push(match.id);
+  });
+  return ids;
+}
+
 export function groupDomainsBySection(domains) {
   return domains.reduce((acc, domain) => {
     const section = domain.section || "Other";
