@@ -65,21 +65,22 @@ const MentorEdit = () => {
         image: null,
         imagePreview: mentor.image || "",
         isActive: mentor.isActive !== false,
-        audioCallPrice: mentor.mentor?.audioCallPrice
-          ? Number(mentor.mentor.audioCallPrice) > 100
-            ? Math.round(Number(mentor.mentor.audioCallPrice) / 45)
-            : mentor.mentor.audioCallPrice
-          : "",
-        videoCallPrice: mentor.mentor?.videoCallPrice
-          ? Number(mentor.mentor.videoCallPrice) > 100
-            ? Math.round(Number(mentor.mentor.videoCallPrice) / 45)
-            : mentor.mentor.videoCallPrice
-          : "",
-        video60CallPrice: mentor.mentor?.video60CallPrice
-          ? Number(mentor.mentor.video60CallPrice) > 100
-            ? Math.round(Number(mentor.mentor.video60CallPrice) / 45)
-            : mentor.mentor.video60CallPrice
-          : "",
+        audioCallPrice: (() => {
+          const n = Number(mentor.mentor?.audioCallPrice);
+          if (!Number.isFinite(n) || n <= 0) return "";
+          // ≤100 = legacy per-min → 45 min total; otherwise already session total
+          return String(n <= 100 ? Math.round(n * 45) : Math.round(n));
+        })(),
+        videoCallPrice: (() => {
+          const n = Number(mentor.mentor?.videoCallPrice);
+          if (!Number.isFinite(n) || n <= 0) return "";
+          return String(n <= 100 ? Math.round(n * 45) : Math.round(n));
+        })(),
+        video60CallPrice: (() => {
+          const n = Number(mentor.mentor?.video60CallPrice);
+          if (!Number.isFinite(n) || n <= 0) return "";
+          return String(n <= 100 ? Math.round(n * 60) : Math.round(n));
+        })(),
       });
     }
   }, [mentorData]);
@@ -124,9 +125,25 @@ const MentorEdit = () => {
       data.append("domain", resolvedDomains[0].name);
       formData.languages.forEach((lang) => data.append("languages", lang));
       resolvedDomains.forEach((d) => data.append("specifications", d.name));
-      if (formData.audioCallPrice !== "") data.append("audioCallPrice", formData.audioCallPrice);
-      if (formData.videoCallPrice !== "") data.append("videoCallPrice", formData.videoCallPrice);
-      if (formData.video60CallPrice !== "") data.append("video60CallPrice", formData.video60CallPrice);
+      // Store session totals for 45 / 60 min formats (not per-minute)
+      if (formData.audioCallPrice !== "") {
+        data.append(
+          "audioCallPrice",
+          String(Math.max(1, Math.round(Number(formData.audioCallPrice)))),
+        );
+      }
+      if (formData.videoCallPrice !== "") {
+        data.append(
+          "videoCallPrice",
+          String(Math.max(1, Math.round(Number(formData.videoCallPrice)))),
+        );
+      }
+      if (formData.video60CallPrice !== "") {
+        data.append(
+          "video60CallPrice",
+          String(Math.max(1, Math.round(Number(formData.video60CallPrice)))),
+        );
+      }
       if (formData.image instanceof File) {
         data.append("image", formData.image);
       }
@@ -348,7 +365,7 @@ const MentorEdit = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Audio price per minute (₹)
+                  Audio session price · 45 min (₹)
                 </label>
                 <input
                   type="number"
@@ -357,12 +374,12 @@ const MentorEdit = () => {
                   value={formData.audioCallPrice}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                  placeholder="12"
+                  placeholder="540"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Video price per minute (₹)
+                  Video session price · 45 min (₹)
                 </label>
                 <input
                   type="number"
@@ -371,14 +388,14 @@ const MentorEdit = () => {
                   value={formData.videoCallPrice}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                  placeholder="15"
+                  placeholder="675"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                60 min video price per minute (optional)
+                Video session price · 60 min (optional)
               </label>
               <input
                 type="number"
@@ -387,7 +404,7 @@ const MentorEdit = () => {
                 value={formData.video60CallPrice}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                placeholder="Same as video rate"
+                placeholder="e.g. 900"
               />
             </div>
 

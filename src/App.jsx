@@ -9,6 +9,7 @@ import { Provider } from "react-redux";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import store from "./store/store";
+import { getRouterBasename } from "./utils/basePath";
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-screen">
@@ -38,6 +39,12 @@ const Financials = lazy(() => import("./pages/Financials"));
 const Bookings = lazy(() => import("./pages/Bookings"));
 const CategoryPage = lazy(() => import("./pages/category/categoryPage"));
 const CategoryAddEdit = lazy(() => import("./pages/category/CategoryAddEdit"));
+const CommunityPage = lazy(() => import("./pages/community/CommunityPage"));
+const CommunityAddEdit = lazy(() => import("./pages/community/CommunityAddEdit"));
+const TherapyPage = lazy(() => import("./pages/therapy/TherapyPage"));
+const TherapyAddEdit = lazy(() => import("./pages/therapy/TherapyAddEdit"));
+const CareersPage = lazy(() => import("./pages/careers/CareersPage"));
+const CareerAddEdit = lazy(() => import("./pages/careers/CareerAddEdit"));
 const MenteeList = lazy(() => import("./pages/mentee/MenteeList"));
 
 const queryClient = new QueryClient({
@@ -54,7 +61,7 @@ const App = () => {
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <Toaster position="top-right" />
-        <Router basename="/admin">
+        <Router basename={getRouterBasename()}>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
               {/* Public routes */}
@@ -82,6 +89,24 @@ const App = () => {
                 <Route
                   path="/category/update/:id"
                   element={<CategoryAddEdit />}
+                />
+                <Route path="/communities" element={<CommunityPage />} />
+                <Route path="/communities/add" element={<CommunityAddEdit />} />
+                <Route
+                  path="/communities/update/:id"
+                  element={<CommunityAddEdit />}
+                />
+                <Route path="/therapy" element={<TherapyPage />} />
+                <Route path="/therapy/add" element={<TherapyAddEdit />} />
+                <Route
+                  path="/therapy/update/:id"
+                  element={<TherapyAddEdit />}
+                />
+                <Route path="/careers" element={<CareersPage />} />
+                <Route path="/careers/add" element={<CareerAddEdit />} />
+                <Route
+                  path="/careers/update/:id"
+                  element={<CareerAddEdit />}
                 />
               
                 <Route

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { appPath } from "../utils/basePath";
 
 // Must include /mateandmentors — routes are mounted in Server/index.js on app.use("/mateandmentors", allRoutes)
 const baseURL = import.meta.env.VITE_API_BASE_URL;
@@ -31,13 +32,13 @@ axiosInstance.interceptors.response.use(
 
     if (status === 401) {
       localStorage.removeItem("user");
-      window.location.href = "/admin/login";
+      window.location.href = appPath("login");
     } else if (
       status === 403 &&
       /forbidden|invalid.*token|permission/i.test(message)
     ) {
       localStorage.removeItem("user");
-      window.location.href = "/admin/login";
+      window.location.href = appPath("login");
     }
     return Promise.reject(error);
   },

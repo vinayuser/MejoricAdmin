@@ -14,6 +14,9 @@ const API_ENDPOINTS = {
   DASHBOARD: {
     GET_DASHBOARD: "/dashboard/stats",
     GET_FINANCIALS: "/dashboard/financials",
+    GET_FINANCIAL_TRANSACTIONS: "/dashboard/financials/transactions",
+    GET_FINANCIAL_USERS: "/dashboard/financials/users",
+    GET_FINANCIAL_SESSIONS: "/dashboard/financials/sessions",
   },
   CATEGORIES: {
     CREATE: "/categories/create",
@@ -21,6 +24,31 @@ const API_ENDPOINTS = {
     DELETE: "/categories/delete/",
     GET_ALL: "/categories/getAll",
     GET_ONE: "/categories/get/:id",
+  },
+  COMMUNITIES: {
+    CREATE: "/communities/create",
+    UPDATE: "/communities/update/:id",
+    DELETE: "/communities/delete/",
+    GET_ALL: "/communities/admin/getAll",
+    GET_ONE: "/communities/admin/get/:id",
+    GET_PRICING: "/communities/admin/pricing",
+    UPDATE_PRICING: "/communities/admin/pricing",
+  },
+  THERAPY: {
+    CREATE: "/therapy/admin/create",
+    UPDATE: "/therapy/admin/update/:id",
+    DELETE: "/therapy/admin/delete/",
+    GET_ALL: "/therapy/admin/getAll",
+    GET_ONE: "/therapy/admin/get/:id",
+  },
+  CAREERS: {
+    CREATE: "/careers/create",
+    UPDATE: "/careers/update/:id",
+    DELETE: "/careers/delete/",
+    GET_ALL: "/careers/admin/getAll",
+    GET_ONE: "/careers/admin/get/:id",
+    APPLICATIONS: "/careers/admin/applications",
+    UPDATE_APPLICATION_STATUS: "/careers/admin/applications/",
   },
   MENTORS: {
     CREATE: "/mentors/create",

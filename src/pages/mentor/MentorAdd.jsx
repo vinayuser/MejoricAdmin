@@ -32,8 +32,8 @@ const MentorAdd = () => {
     languages: [],
     mentorType: "emotional",
     image: null,
-    audioCallPrice: "12",
-    videoCallPrice: "15",
+    audioCallPrice: "540",
+    videoCallPrice: "675",
     video60CallPrice: "",
   });
   const [errors, setErrors] = useState({});
@@ -90,9 +90,25 @@ const MentorAdd = () => {
       data.append("experience", Number(formData.experience) || 0);
       formData.languages.forEach((lang) => data.append("languages", lang));
       resolvedDomains.forEach((d) => data.append("specifications", d.name));
-      if (formData.audioCallPrice) data.append("audioCallPrice", formData.audioCallPrice);
-      if (formData.videoCallPrice) data.append("videoCallPrice", formData.videoCallPrice);
-      if (formData.video60CallPrice) data.append("video60CallPrice", formData.video60CallPrice);
+      // Store session totals for 45 / 60 min formats (not per-minute)
+      if (formData.audioCallPrice) {
+        data.append(
+          "audioCallPrice",
+          String(Math.max(1, Math.round(Number(formData.audioCallPrice)))),
+        );
+      }
+      if (formData.videoCallPrice) {
+        data.append(
+          "videoCallPrice",
+          String(Math.max(1, Math.round(Number(formData.videoCallPrice)))),
+        );
+      }
+      if (formData.video60CallPrice) {
+        data.append(
+          "video60CallPrice",
+          String(Math.max(1, Math.round(Number(formData.video60CallPrice)))),
+        );
+      }
       if (formData.image) data.append("image", formData.image);
 
       await axiosInstance.post(API_ENDPOINTS.MENTORS.CREATE, data, {
@@ -251,7 +267,7 @@ const MentorAdd = () => {
             </Field>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Audio price per minute (₹)">
+              <Field label="Audio session price · 45 min (₹)">
                 <IconInput
                   icon={Briefcase}
                   type="number"
@@ -259,10 +275,10 @@ const MentorAdd = () => {
                   min="1"
                   value={formData.audioCallPrice}
                   onChange={handleChange}
-                  placeholder="12"
+                  placeholder="540"
                 />
               </Field>
-              <Field label="Video price per minute (₹)">
+              <Field label="Video session price · 45 min (₹)">
                 <IconInput
                   icon={Briefcase}
                   type="number"
@@ -270,11 +286,11 @@ const MentorAdd = () => {
                   min="1"
                   value={formData.videoCallPrice}
                   onChange={handleChange}
-                  placeholder="15"
+                  placeholder="675"
                 />
               </Field>
             </div>
-            <Field label="60 min video price per minute (optional)">
+            <Field label="Video session price · 60 min (optional)">
               <IconInput
                 icon={Briefcase}
                 type="number"
@@ -282,7 +298,7 @@ const MentorAdd = () => {
                 min="1"
                 value={formData.video60CallPrice}
                 onChange={handleChange}
-                placeholder="Same as video rate"
+                placeholder="e.g. 900"
               />
             </Field>
 

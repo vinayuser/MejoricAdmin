@@ -67,25 +67,30 @@ app.use(
 // 2. Compression
 app.use(compression());
 
-// 3. Static Files
-// 🛡️ Mount static files under /admin to match Nginx proxy and Vite base path
-app.use("/admin", express.static(path.join(__dirname, "dist")));
-app.use(express.static(path.join(__dirname, "dist")));
+// 3. Static files
+const distPath = path.join(__dirname, "dist");
+app.use("/staging-admin", express.static(distPath));
+app.use("/admin", express.static(distPath));
+app.use(express.static(distPath));
 
-// 4. Rate Limiting (Moved after static files to avoid blocking assets like .mp3)
+// 4. Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 2000, // Increased to allow for assets + application requests
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: "Too many requests from this IP, please try again after 15 minutes",
 });
 app.use(limiter);
 
-// 5. Catch-all: serve index.html for all routes (SPA support)
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
-});
+// 5. SPA fallback
+const sendAdminIndex = (_req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+};
+app.get("/staging-admin", sendAdminIndex);
+app.get("/staging-admin/*", sendAdminIndex);
+app.get("/admin", sendAdminIndex);
+app.get("/admin/*", sendAdminIndex);
 
 app.listen(PORT, () => {
   console.log(`🛡️  Secure server running on port ${PORT}`);
