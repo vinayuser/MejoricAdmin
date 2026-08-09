@@ -82,6 +82,11 @@ const API_ENDPOINTS = {
     SUMMARY: "/mate-availability/tracking/summary",
     DAILY_STATS: "/mate-availability/tracking",
   },
+  MODERATION: {
+    BLOCKED_IPS: "/moderation/blocked-ips",
+    UNBLOCK_IP: "/moderation/unblock-ip",
+    BLOCK_IP: "/moderation/block-ip",
+  },
 };
 
 export default API_ENDPOINTS;

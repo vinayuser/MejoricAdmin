@@ -30,6 +30,7 @@ import MentorList from "./pages/mentor/MentorList";
 import MentorAdd from "./pages/mentor/MentorAdd";
 import MentorEdit from "./pages/mentor/MentorEdit";
 import Users from "./pages/Users";
+import BlockedIps from "./pages/BlockedIps";
 import BulkSms from "./pages/BulkSms";
 
 const Login = lazy(() => import("./pages/Login"));
@@ -71,6 +72,7 @@ const App = () => {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/users" element={<Users />} />
+                <Route path="/blocked-ips" element={<BlockedIps />} />
                 <Route path="/bulk-sms" element={<BulkSms />} />
                 <Route path="/financials" element={<Financials />} />
                 <Route path="/bookings" element={<Bookings />} />

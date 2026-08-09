@@ -13,6 +13,7 @@ const Sidebar = () => {
         { name: "Dashboard", path: "/", icon: <DashboardIcon /> },
         { name: "Profile", path: "/profile", icon: <ProfileIcon /> },
         { name: "Users", path: "/users", icon: <UsersIcon /> },
+        { name: "Blocked IPs", path: "/blocked-ips", icon: <BlockedIcon /> },
         { name: "Financials", path: "/financials", icon: <FinancialsIcon /> },
       ],
     },
@@ -184,6 +185,13 @@ const FinancialsIcon = () => (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect width="20" height="14" x="2" y="5" rx="2" />
     <line x1="2" x2="22" y1="10" y2="10" />
+  </svg>
+);
+
+const BlockedIcon = () => (
+  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="4.93" x2="19.07" y1="4.93" y2="19.07" />
   </svg>
 );
 
