@@ -2,23 +2,22 @@
 #
 # Run: Actions → "Deploy admin" → choose branch + environment → Run workflow.
 #
+# Nginx serves the Vite `dist/` folder directly — no PM2 / Node for the admin UI.
+#
 # Create GitHub Environments named exactly: production  and  staging
-# (Settings → Environments). Put SSH + app secrets on EACH environment.
+# (Settings → Environments). Put SSH secrets on EACH environment.
 #
 # Required per environment:
 #   SSH_HOST          server IP or hostname
 #   SSH_USER          SSH username
-#   SSH_PRIVATE_KEY   private key for that server
+#   SSH_PASSWORD      SSH login password
 #
 # Optional per environment (defaults below if omitted):
-#   SSH_PORT                 default 22
 #   APP_DIR                  production: /var/www/html/mejoric/admin/MejoricAdmin
 #                            staging:    /var/www/html/mejoric/admin-dev/MejoricAdmin
-#   VITE_BASE                both: /  (admin.mejoric.com / admin-dev.mejoric.com)
+#   VITE_BASE                both: /
 #   VITE_API_BASE_URL        production/staging API URLs
 #   VITE_SOCKET_SERVER_URL   production/staging socket URLs
-#   PM2_NAME                 production: mejoric-admin   staging: mejoric-admin-staging
-#   ADMIN_PORT               production: 3003            staging: 3004
 
 name: Deploy admin
 
@@ -55,18 +54,15 @@ jobs:
       VITE_BASE: ${{ secrets.VITE_BASE }}
       VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
       VITE_SOCKET_SERVER_URL: ${{ secrets.VITE_SOCKET_SERVER_URL }}
-      PM2_NAME: ${{ secrets.PM2_NAME }}
-      ADMIN_PORT: ${{ secrets.ADMIN_PORT }}
     steps:
       - name: Deploy over SSH (${{ inputs.environment }})
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          password: ${{ secrets.SSH_PASSWORD }}
           script_stop: true
-          envs: BRANCH,DEPLOY_ENV,APP_DIR,VITE_BASE,VITE_API_BASE_URL,VITE_SOCKET_SERVER_URL,PM2_NAME,ADMIN_PORT
+          envs: BRANCH,DEPLOY_ENV,APP_DIR,VITE_BASE,VITE_API_BASE_URL,VITE_SOCKET_SERVER_URL
           script: |
             set -euo pipefail
 
@@ -78,16 +74,12 @@ jobs:
               VITE_BASE="${VITE_BASE:-/}"
               VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://mejoric.com/staging-api/mateandmentors}"
               VITE_SOCKET_SERVER_URL="${VITE_SOCKET_SERVER_URL:-https://mejoric.com/staging-api}"
-              PM2_NAME="${PM2_NAME:-mejoric-admin-staging}"
-              ADMIN_PORT="${ADMIN_PORT:-3004}"
               ADMIN_URL="https://admin-dev.mejoric.com"
             else
               APP_DIR="${APP_DIR:-/var/www/html/mejoric/admin/MejoricAdmin}"
               VITE_BASE="${VITE_BASE:-/}"
               VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://mejoric.com/mateandmentors}"
               VITE_SOCKET_SERVER_URL="${VITE_SOCKET_SERVER_URL:-https://mejoric.com}"
-              PM2_NAME="${PM2_NAME:-mejoric-admin}"
-              ADMIN_PORT="${ADMIN_PORT:-3003}"
               ADMIN_URL="https://admin.mejoric.com"
             fi
 
@@ -100,9 +92,9 @@ jobs:
             echo "==> Environment: $DEPLOY_ENV"
             echo "==> Branch:      $BRANCH"
             echo "==> App dir:     $APP_DIR"
+            echo "==> Dist:        $APP_DIR/dist"
             echo "==> Vite base:   $VITE_BASE"
             echo "==> API:         $VITE_API_BASE_URL"
-            echo "==> PM2 / port:  $PM2_NAME :$ADMIN_PORT"
             echo "==> URL:         $ADMIN_URL"
 
             cd "$APP_DIR"
@@ -118,25 +110,16 @@ jobs:
             echo "==> Installing dependencies"
             npm install
 
-            echo "==> Building ($DEPLOY_ENV)"
+            echo "==> Building static files ($DEPLOY_ENV)"
             export VITE_BASE
             export VITE_API_BASE_URL
             export VITE_SOCKET_SERVER_URL
             export VITE_APP_ENV=production
-            export PORT="$ADMIN_PORT"
             npm run build
 
-            echo "==> Restarting $PM2_NAME"
-            if ! command -v pm2 >/dev/null 2>&1; then
-              echo "PM2 not found — install pm2 on the server"
+            if [ ! -f dist/index.html ]; then
+              echo "Build failed: dist/index.html not found"
               exit 1
             fi
 
-            if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-              PORT="$ADMIN_PORT" pm2 restart "$PM2_NAME" --update-env
-            else
-              PORT="$ADMIN_PORT" pm2 start ecosystem.config.cjs --name "$PM2_NAME" --update-env
-            fi
-            pm2 save
-
-            echo "==> Done. $DEPLOY_ENV is live at $ADMIN_URL"
+            echo "==> Done. Nginx should serve $APP_DIR/dist at $ADMIN_URL"
