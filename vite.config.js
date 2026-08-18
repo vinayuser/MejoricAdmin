@@ -38,7 +38,14 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss(), adminBaseRedirectPlugin(base)],
     server: {
       port: isLocal ? adminConfig.devPort : 3003,
-      allowedHosts: ["mejoric.com", "www.mejoric.com", "192.168.1.9", "localhost"],
+      allowedHosts: [
+        "mejoric.com",
+        "www.mejoric.com",
+        "admin.mejoric.com",
+        "admin-dev.mejoric.com",
+        "192.168.1.9",
+        "localhost",
+      ],
       open: base.endsWith("/") ? base : `${base}/`,
       proxy: {
         "/mateandmentors": {

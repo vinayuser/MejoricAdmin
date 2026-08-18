@@ -1,11 +1,11 @@
-/** Router basename from Vite `base` (e.g. `/staging-admin/` → `/staging-admin`). */
+/** Router basename from Vite `base` (root `/` on admin.mejoric.com / admin-dev.mejoric.com). */
 export function getRouterBasename() {
   const base = import.meta.env.BASE_URL || "/";
   if (!base || base === "/") return undefined;
   return base.replace(/\/$/, "");
 }
 
-/** Build a path under the Vite base, e.g. `/staging-admin/login`. */
+/** Build a path under the Vite base, e.g. `/login`. */
 export function appPath(path = "/") {
   const base = import.meta.env.BASE_URL || "/";
   const normalized = path.startsWith("/") ? path.slice(1) : path;

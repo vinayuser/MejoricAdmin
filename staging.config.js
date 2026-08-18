@@ -1,9 +1,10 @@
 /** Admin panel — staging vs production paths */
 const adminConfig = {
-  /** Staging: https://mejoric.com/staging-admin/ */
-  base: "/staging-admin/",
-  /** Production: https://mejoric.com/admin/ */
-  productionBase: "/admin/",
+  /** Production: https://admin.mejoric.com/ */
+  base: "/",
+  /** Staging: https://admin-dev.mejoric.com/ */
+  stagingBase: "/",
+  productionBase: "/",
   devPort: 6003,
 
   apiBaseUrl: "https://mejoric.com/staging-api/mateandmentors",

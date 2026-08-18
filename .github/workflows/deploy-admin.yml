@@ -1,0 +1,142 @@
+# Deploy super-admin over SSH.
+#
+# Run: Actions → "Deploy admin" → choose branch + environment → Run workflow.
+#
+# Create GitHub Environments named exactly: production  and  staging
+# (Settings → Environments). Put SSH + app secrets on EACH environment.
+#
+# Required per environment:
+#   SSH_HOST          server IP or hostname
+#   SSH_USER          SSH username
+#   SSH_PRIVATE_KEY   private key for that server
+#
+# Optional per environment (defaults below if omitted):
+#   SSH_PORT                 default 22
+#   APP_DIR                  production: /var/www/html/mejoric/admin/MejoricAdmin
+#                            staging:    /var/www/html/mejoric/admin-dev/MejoricAdmin
+#   VITE_BASE                both: /  (admin.mejoric.com / admin-dev.mejoric.com)
+#   VITE_API_BASE_URL        production/staging API URLs
+#   VITE_SOCKET_SERVER_URL   production/staging socket URLs
+#   PM2_NAME                 production: mejoric-admin   staging: mejoric-admin-staging
+#   ADMIN_PORT               production: 3003            staging: 3004
+
+name: Deploy admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Git branch to checkout and pull on the server"
+        required: true
+        default: "main"
+        type: string
+      environment:
+        description: "GitHub Environment (SSH creds + env secrets)"
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
+
+concurrency:
+  group: deploy-admin-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.branch }} → ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      BRANCH: ${{ inputs.branch }}
+      DEPLOY_ENV: ${{ inputs.environment }}
+      APP_DIR: ${{ secrets.APP_DIR }}
+      VITE_BASE: ${{ secrets.VITE_BASE }}
+      VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+      VITE_SOCKET_SERVER_URL: ${{ secrets.VITE_SOCKET_SERVER_URL }}
+      PM2_NAME: ${{ secrets.PM2_NAME }}
+      ADMIN_PORT: ${{ secrets.ADMIN_PORT }}
+    steps:
+      - name: Deploy over SSH (${{ inputs.environment }})
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          envs: BRANCH,DEPLOY_ENV,APP_DIR,VITE_BASE,VITE_API_BASE_URL,VITE_SOCKET_SERVER_URL,PM2_NAME,ADMIN_PORT
+          script: |
+            set -euo pipefail
+
+            BRANCH="${BRANCH}"
+            DEPLOY_ENV="${DEPLOY_ENV}"
+
+            if [ "$DEPLOY_ENV" = "staging" ]; then
+              APP_DIR="${APP_DIR:-/var/www/html/mejoric/admin-dev/MejoricAdmin}"
+              VITE_BASE="${VITE_BASE:-/}"
+              VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://mejoric.com/staging-api/mateandmentors}"
+              VITE_SOCKET_SERVER_URL="${VITE_SOCKET_SERVER_URL:-https://mejoric.com/staging-api}"
+              PM2_NAME="${PM2_NAME:-mejoric-admin-staging}"
+              ADMIN_PORT="${ADMIN_PORT:-3004}"
+              ADMIN_URL="https://admin-dev.mejoric.com"
+            else
+              APP_DIR="${APP_DIR:-/var/www/html/mejoric/admin/MejoricAdmin}"
+              VITE_BASE="${VITE_BASE:-/}"
+              VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://mejoric.com/mateandmentors}"
+              VITE_SOCKET_SERVER_URL="${VITE_SOCKET_SERVER_URL:-https://mejoric.com}"
+              PM2_NAME="${PM2_NAME:-mejoric-admin}"
+              ADMIN_PORT="${ADMIN_PORT:-3003}"
+              ADMIN_URL="https://admin.mejoric.com"
+            fi
+
+            export NVM_DIR="$HOME/.nvm"
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              . "$NVM_DIR/nvm.sh"
+            fi
+            export PATH="/usr/local/bin:/usr/bin:$PATH"
+
+            echo "==> Environment: $DEPLOY_ENV"
+            echo "==> Branch:      $BRANCH"
+            echo "==> App dir:     $APP_DIR"
+            echo "==> Vite base:   $VITE_BASE"
+            echo "==> API:         $VITE_API_BASE_URL"
+            echo "==> PM2 / port:  $PM2_NAME :$ADMIN_PORT"
+            echo "==> URL:         $ADMIN_URL"
+
+            cd "$APP_DIR"
+
+            git fetch origin "$BRANCH"
+            if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+              git checkout "$BRANCH"
+            else
+              git checkout -b "$BRANCH" --track "origin/$BRANCH"
+            fi
+            git pull origin "$BRANCH"
+
+            echo "==> Installing dependencies"
+            npm install
+
+            echo "==> Building ($DEPLOY_ENV)"
+            export VITE_BASE
+            export VITE_API_BASE_URL
+            export VITE_SOCKET_SERVER_URL
+            export VITE_APP_ENV=production
+            export PORT="$ADMIN_PORT"
+            npm run build
+
+            echo "==> Restarting $PM2_NAME"
+            if ! command -v pm2 >/dev/null 2>&1; then
+              echo "PM2 not found — install pm2 on the server"
+              exit 1
+            fi
+
+            if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
+              PORT="$ADMIN_PORT" pm2 restart "$PM2_NAME" --update-env
+            else
+              PORT="$ADMIN_PORT" pm2 start ecosystem.config.cjs --name "$PM2_NAME" --update-env
+            fi
+            pm2 save
+
+            echo "==> Done. $DEPLOY_ENV is live at $ADMIN_URL"
