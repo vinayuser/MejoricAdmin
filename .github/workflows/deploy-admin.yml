@@ -1,24 +1,3 @@
-# Deploy super-admin over SSH.
-#
-# Run: Actions → "Deploy admin" → choose branch + environment → Run workflow.
-#
-# Nginx serves the Vite `dist/` folder directly — no PM2 / Node for the admin UI.
-#
-# Create GitHub Environments named exactly: production  and  staging
-# (Settings → Environments). Put SSH secrets on EACH environment.
-#
-# Required per environment:
-#   SSH_HOST          server IP or hostname
-#   SSH_USER          SSH username
-#   SSH_PASSWORD      SSH login password
-#
-# Optional per environment (defaults below if omitted):
-#   APP_DIR                  production: /var/www/html/mejoric/admin/MejoricAdmin
-#                            staging:    /var/www/html/mejoric/admin-dev/MejoricAdmin
-#   VITE_BASE                both: /
-#   VITE_API_BASE_URL        production/staging API URLs
-#   VITE_SOCKET_SERVER_URL   production/staging socket URLs
-
 name: Deploy admin
 
 on:
@@ -30,7 +9,7 @@ on:
         default: "main"
         type: string
       environment:
-        description: "GitHub Environment (SSH creds + env secrets)"
+        description: "GitHub Environment (SSH + Vite secrets)"
         required: true
         default: production
         type: choice
@@ -55,33 +34,41 @@ jobs:
       VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
       VITE_SOCKET_SERVER_URL: ${{ secrets.VITE_SOCKET_SERVER_URL }}
     steps:
+      - name: Check required secrets
+        run: |
+          missing=""
+          [ -z "${{ secrets.SSH_HOST }}" ] && missing="$missing SSH_HOST"
+          [ -z "${{ secrets.SSH_USER }}" ] && missing="$missing SSH_USER"
+          [ -z "${{ secrets.SSH_PASSWORD }}" ] && missing="$missing SSH_PASSWORD"
+          [ -z "${{ secrets.VITE_API_BASE_URL }}" ] && missing="$missing VITE_API_BASE_URL"
+          [ -z "${{ secrets.VITE_SOCKET_SERVER_URL }}" ] && missing="$missing VITE_SOCKET_SERVER_URL"
+          if [ -n "$missing" ]; then
+            echo "Missing secrets on environment '${{ inputs.environment }}':$missing"
+            echo "Add them under Settings → Environments → ${{ inputs.environment }} → Environment secrets"
+            exit 1
+          fi
+
       - name: Deploy over SSH (${{ inputs.environment }})
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
+          command_timeout: 20m
           script_stop: true
           envs: BRANCH,DEPLOY_ENV,APP_DIR,VITE_BASE,VITE_API_BASE_URL,VITE_SOCKET_SERVER_URL
           script: |
             set -euo pipefail
 
-            BRANCH="${BRANCH}"
-            DEPLOY_ENV="${DEPLOY_ENV}"
-
             if [ "$DEPLOY_ENV" = "staging" ]; then
               APP_DIR="${APP_DIR:-/var/www/html/mejoric/admin-dev/MejoricAdmin}"
-              VITE_BASE="${VITE_BASE:-/}"
-              VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://mejoric.com/staging-api/mateandmentors}"
-              VITE_SOCKET_SERVER_URL="${VITE_SOCKET_SERVER_URL:-https://mejoric.com/staging-api}"
               ADMIN_URL="https://admin-dev.mejoric.com"
             else
               APP_DIR="${APP_DIR:-/var/www/html/mejoric/admin/MejoricAdmin}"
-              VITE_BASE="${VITE_BASE:-/}"
-              VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://mejoric.com/mateandmentors}"
-              VITE_SOCKET_SERVER_URL="${VITE_SOCKET_SERVER_URL:-https://mejoric.com}"
               ADMIN_URL="https://admin.mejoric.com"
             fi
+
+            VITE_BASE="${VITE_BASE:-/}"
 
             export NVM_DIR="$HOME/.nvm"
             if [ -s "$NVM_DIR/nvm.sh" ]; then
@@ -95,6 +82,7 @@ jobs:
             echo "==> Dist:        $APP_DIR/dist"
             echo "==> Vite base:   $VITE_BASE"
             echo "==> API:         $VITE_API_BASE_URL"
+            echo "==> Socket:      $VITE_SOCKET_SERVER_URL"
             echo "==> URL:         $ADMIN_URL"
 
             cd "$APP_DIR"

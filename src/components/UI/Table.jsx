@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Plus, Eye, Pencil, Trash2, ClipboardPlus, History, KeyRound } from "lucide-react";
 
-const Table = ({
-  columns,
-  data,
+export default function Table({
+  columns = [],
+  data = [],
   onRowClick,
   onAddNew,
   onView,
@@ -17,15 +17,19 @@ const Table = ({
   addButtonText = "Add new",
   addButtonIcon: AddIcon = Plus,
   isLoading = false,
-}) => {
+  emptyMessage,
+}) {
   const [selectedRow, setSelectedRow] = useState(null);
+  const hasActions = Boolean(
+    onView || onEdit || onDelete || onReport || onHistory || onResetPassword,
+  );
 
   const handleRowSelect = (row) => {
     setSelectedRow(row);
     onRowClick?.(row);
   };
 
-  const ActionButton = ({ onClick, icon: Icon, title, hoverColorClass, hoverBgClass }) => (
+  const ActionButton = ({ onClick, icon: Icon, label, hoverColorClass, hoverBgClass }) => (
     <div className="relative group/tip flex items-center justify-center">
       <button
         type="button"
@@ -37,10 +41,8 @@ const Table = ({
       >
         <Icon className="h-4 w-4" />
       </button>
-      
-      {/* Tooltip */}
       <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-all duration-200 group-hover/tip:opacity-100 group-hover/tip:translate-y-[-2px] pointer-events-none z-50 shadow-lg">
-        {title}
+        {label}
         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
       </div>
     </div>
@@ -62,6 +64,7 @@ const Table = ({
           </div>
           {onAddNew && (
             <button
+              type="button"
               onClick={onAddNew}
               className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 transition-colors"
             >
@@ -82,14 +85,21 @@ const Table = ({
                   className="px-6 py-3 text-[12px] font-semibold text-slate-500 uppercase tracking-wider"
                 >
                   <div className="flex items-center gap-1">
-                    {column.title}
-                    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" /></svg>
+                    {column.title ?? column.label}
+                    {column.sortable && (
+                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="m7 15 5 5 5-5" />
+                        <path d="m7 9 5-5 5 5" />
+                      </svg>
+                    )}
                   </div>
                 </th>
               ))}
-              <th className="px-6 py-3 text-right text-[12px] font-semibold text-slate-500 uppercase tracking-wider">
-                Actions
-              </th>
+              {hasActions && (
+                <th className="px-6 py-3 text-right text-[12px] font-semibold text-slate-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -104,16 +114,66 @@ const Table = ({
                     {column.render ? column.render(row) : row[column.key]}
                   </td>
                 ))}
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {onView && <ActionButton onClick={() => onView(row)} icon={Eye} title="View" hoverBgClass="hover:bg-slate-100" hoverColorClass="hover:text-slate-900" />}
-                    {onEdit && <ActionButton onClick={() => onEdit(row)} icon={Pencil} title="Edit" hoverBgClass="hover:bg-slate-100" hoverColorClass="hover:text-slate-900" />}
-                    {onReport && <ActionButton onClick={() => onReport(row)} icon={ClipboardPlus} title="Report" hoverBgClass="hover:bg-slate-100" hoverColorClass="hover:text-slate-900" />}
-                    {onHistory && <ActionButton onClick={() => onHistory(row)} icon={History} title="History" hoverBgClass="hover:bg-slate-100" hoverColorClass="hover:text-slate-900" />}
-                    {onResetPassword && <ActionButton onClick={() => onResetPassword(row)} icon={KeyRound} title="Reset password" hoverBgClass="hover:bg-amber-50" hoverColorClass="hover:text-amber-600" />}
-                    {onDelete && <ActionButton onClick={() => onDelete(row)} icon={Trash2} title="Delete" hoverBgClass="hover:bg-red-50" hoverColorClass="hover:text-red-600" />}
-                  </div>
-                </td>
+                {hasActions && (
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {onView && (
+                        <ActionButton
+                          onClick={() => onView(row)}
+                          icon={Eye}
+                          label="View"
+                          hoverBgClass="hover:bg-slate-100"
+                          hoverColorClass="hover:text-slate-900"
+                        />
+                      )}
+                      {onEdit && (
+                        <ActionButton
+                          onClick={() => onEdit(row)}
+                          icon={Pencil}
+                          label="Edit"
+                          hoverBgClass="hover:bg-slate-100"
+                          hoverColorClass="hover:text-slate-900"
+                        />
+                      )}
+                      {onReport && (
+                        <ActionButton
+                          onClick={() => onReport(row)}
+                          icon={ClipboardPlus}
+                          label="Report"
+                          hoverBgClass="hover:bg-slate-100"
+                          hoverColorClass="hover:text-slate-900"
+                        />
+                      )}
+                      {onHistory && (
+                        <ActionButton
+                          onClick={() => onHistory(row)}
+                          icon={History}
+                          label="History"
+                          hoverBgClass="hover:bg-slate-100"
+                          hoverColorClass="hover:text-slate-900"
+                        />
+                      )}
+                      {onResetPassword && (
+                        <ActionButton
+                          onClick={() => onResetPassword(row)}
+                          icon={KeyRound}
+                          label="Reset password"
+                          hoverBgClass="hover:bg-amber-50"
+                          hoverColorClass="hover:text-amber-600"
+                        />
+                      )}
+                      {onDelete && (
+                        <ActionButton
+                          onClick={() => onDelete(row)}
+                          icon={Trash2}
+                          label="Delete"
+                          hoverBgClass="hover:bg-red-50"
+                          hoverColorClass="hover:text-red-600"
+                        />
+                      )}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -122,11 +182,9 @@ const Table = ({
 
       {data.length === 0 && !isLoading && (
         <div className="px-6 py-12 text-center">
-          <p className="text-sm text-slate-400">No records found.</p>
+          <p className="text-sm text-slate-400">{emptyMessage || "No records found."}</p>
         </div>
       )}
     </div>
   );
-};
-
-export default Table;
+}

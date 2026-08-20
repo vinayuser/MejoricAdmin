@@ -87,6 +87,21 @@ const API_ENDPOINTS = {
     UNBLOCK_IP: "/moderation/unblock-ip",
     BLOCK_IP: "/moderation/block-ip",
   },
+  CORPORATE: {
+    CREATE: "/corporate/admin/create",
+    UPDATE: "/corporate/admin/update/:id",
+    DELETE: "/corporate/admin/delete/",
+    GET_ALL: "/corporate/admin/getAll",
+    GET_ONE: "/corporate/admin/get/:id",
+    BILLING_OVERVIEW: "/corporate/admin/billing/overview",
+    DASHBOARD: "/corporate/admin/:id/dashboard",
+    INVOICES: "/corporate/admin/:id/invoices",
+    GENERATE_INVOICE: "/corporate/admin/:id/invoices/generate",
+    RECORD_PAYMENT: "/corporate/admin/invoices/:invoiceId/payment",
+    CANCEL_INVOICE: "/corporate/admin/invoices/",
+    USAGE: "/corporate/admin/:id/usage",
+    MEMBERS: "/corporate/admin/:id/members",
+  },
 };
 
 export default API_ENDPOINTS;

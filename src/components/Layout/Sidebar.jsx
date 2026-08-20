@@ -26,6 +26,7 @@ const Sidebar = () => {
         { name: "Communities", path: "/communities", icon: <CommunitiesIcon /> },
         { name: "Group Therapy", path: "/therapy", icon: <TherapyIcon /> },
         { name: "Careers", path: "/careers", icon: <CareersIcon /> },
+        { name: "Corporate", path: "/corporate", icon: <CorporateIcon /> },
         { name: "Gallery", path: "/gallery", icon: <GalleryIcon /> },
       ],
     },
@@ -67,6 +68,8 @@ const Sidebar = () => {
                     location.pathname.startsWith("/therapy")) ||
                   (item.path === "/careers" &&
                     location.pathname.startsWith("/careers")) ||
+                  (item.path === "/corporate" &&
+                    location.pathname.startsWith("/corporate")) ||
                   (item.path === "/mates/tracking" &&
                     location.pathname.startsWith("/mates/tracking"));
                 return (
@@ -178,6 +181,18 @@ const CareersIcon = () => (
     <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
     <path d="M12 12v4" />
     <path d="M10 14h4" />
+  </svg>
+);
+
+const CorporateIcon = () => (
+  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21h18" />
+    <path d="M5 21V7l8-4v18" />
+    <path d="M19 21V11l-6-4" />
+    <path d="M9 9v.01" />
+    <path d="M9 12v.01" />
+    <path d="M9 15v.01" />
+    <path d="M9 18v.01" />
   </svg>
 );
 

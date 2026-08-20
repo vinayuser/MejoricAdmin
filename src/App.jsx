@@ -46,6 +46,9 @@ const TherapyPage = lazy(() => import("./pages/therapy/TherapyPage"));
 const TherapyAddEdit = lazy(() => import("./pages/therapy/TherapyAddEdit"));
 const CareersPage = lazy(() => import("./pages/careers/CareersPage"));
 const CareerAddEdit = lazy(() => import("./pages/careers/CareerAddEdit"));
+const CorporatePage = lazy(() => import("./pages/corporate/CorporatePage"));
+const CorporateAddEdit = lazy(() => import("./pages/corporate/CorporateAddEdit"));
+const CorporateDetail = lazy(() => import("./pages/corporate/CorporateDetail"));
 const MenteeList = lazy(() => import("./pages/mentee/MenteeList"));
 
 const queryClient = new QueryClient({
@@ -109,6 +112,13 @@ const App = () => {
                 <Route
                   path="/careers/update/:id"
                   element={<CareerAddEdit />}
+                />
+                <Route path="/corporate" element={<CorporatePage />} />
+                <Route path="/corporate/add" element={<CorporateAddEdit />} />
+                <Route path="/corporate/view/:id" element={<CorporateDetail />} />
+                <Route
+                  path="/corporate/update/:id"
+                  element={<CorporateAddEdit />}
                 />
               
                 <Route
