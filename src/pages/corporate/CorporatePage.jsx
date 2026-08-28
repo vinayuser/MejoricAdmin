@@ -71,6 +71,11 @@ const CorporatePage = () => {
       render: (row) => `@${row.emailDomain}`,
     },
     {
+      key: "billingContactEmail",
+      title: "Owner email",
+      render: (row) => row.billingContactEmail || "—",
+    },
+    {
       key: "monthlyPlatformFee",
       title: "Cycle fee",
       render: (row) => money(row.monthlyPlatformFee),

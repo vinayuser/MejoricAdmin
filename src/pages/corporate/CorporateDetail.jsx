@@ -448,17 +448,29 @@ const CorporateDetail = () => {
       {tab === "overview" && (
         <div className="grid lg:grid-cols-2 gap-6">
           <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <h2 className="font-semibold text-slate-900 mb-4">Contract & billing contact</h2>
+            <h2 className="font-semibold text-slate-900 mb-4">Company owner & billing</h2>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Billing contact</dt>
-                <dd className="text-slate-900 text-right">
-                  {corp.billingContactName || "—"}
-                  {corp.billingContactEmail && (
-                    <div className="text-slate-500">{corp.billingContactEmail}</div>
+                <dt className="text-slate-500">Owner login email</dt>
+                <dd className="text-slate-900 text-right font-medium">
+                  {corp.billingContactEmail || (
+                    <span className="text-amber-600 font-normal">Not set — add in edit</span>
                   )}
                 </dd>
               </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Owner name</dt>
+                <dd className="text-slate-900 text-right">
+                  {corp.billingContactName || "—"}
+                </dd>
+              </div>
+              {corp.billingContactEmail && (
+                <p className="text-xs text-slate-500 bg-violet-50 border border-violet-100 rounded-lg p-3 mt-2">
+                  Owner signs in at{" "}
+                  <strong>corporate.mejoric.com/corporate/login</strong> with this
+                  email to view usage and employees.
+                </p>
+              )}
               <div className="flex justify-between">
                 <dt className="text-slate-500">GST</dt>
                 <dd>{corp.gstNumber || "—"}</dd>

@@ -130,6 +130,15 @@ const CorporateAddEdit = () => {
       toast.error("Email domain is required");
       return;
     }
+    if (!form.billingContactEmail.trim()) {
+      toast.error("Company owner email is required");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.billingContactEmail.trim())) {
+      toast.error("Please enter a valid owner email");
+      return;
+    }
 
     const payload = buildPayload();
     const opts = {
@@ -186,6 +195,47 @@ const CorporateAddEdit = () => {
               placeholder="outlinesystem.com"
               className="w-full border border-slate-300 rounded-lg px-3 py-2"
             />
+            <p className="text-xs text-slate-500 mt-1">
+              Employees sign up with emails ending in @{form.emailDomain || "company.com"}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-violet-900">Company owner (usage dashboard)</h3>
+              <p className="text-xs text-violet-800/80 mt-1">
+                This person signs in at corporate.mejoric.com with OTP to view usage,
+                employees, and minute pools for the company.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Owner name
+                </label>
+                <input
+                  name="billingContactName"
+                  value={form.billingContactName}
+                  onChange={onChange}
+                  placeholder="HR / Admin name"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Owner email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  name="billingContactEmail"
+                  type="email"
+                  required
+                  value={form.billingContactEmail}
+                  onChange={onChange}
+                  placeholder="admin@company.com"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"
+                />
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
@@ -313,27 +363,8 @@ const CorporateAddEdit = () => {
         </section>
 
         <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
-          <h2 className="font-semibold text-slate-900">Billing contact</h2>
+          <h2 className="font-semibold text-slate-900">Billing details</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contact name</label>
-              <input
-                name="billingContactName"
-                value={form.billingContactName}
-                onChange={onChange}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contact email</label>
-              <input
-                name="billingContactEmail"
-                type="email"
-                value={form.billingContactEmail}
-                onChange={onChange}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2"
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
               <input
