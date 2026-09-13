@@ -330,7 +330,9 @@ const CorporateAddEdit = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contract end (optional)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Contract end <span className="text-slate-400 font-normal">(login blocked after this date)</span>
+              </label>
               <input
                 name="contractEndDate"
                 type="date"
@@ -347,7 +349,7 @@ const CorporateAddEdit = () => {
               checked={form.autoRenewInvoice}
               onChange={onChange}
             />
-            Auto-generate invoices for new billing periods
+            Auto-generate subscription invoices for new billing periods
           </label>
           {!isEdit && (
             <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -357,9 +359,12 @@ const CorporateAddEdit = () => {
                 checked={form.generateInitialInvoice}
                 onChange={onChange}
               />
-              Create setup fee & first period invoice on save
+              On save: create separate onboarding invoice (if setup fee) and first subscription invoice
             </label>
           )}
+          <p className="text-xs text-slate-500">
+            Onboarding and subscription invoices are stored as separate billing history entries.
+          </p>
         </section>
 
         <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
@@ -375,23 +380,29 @@ const CorporateAddEdit = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">GST number</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                GST number (shown on invoices)
+              </label>
               <input
                 name="gstNumber"
                 value={form.gstNumber}
                 onChange={onChange}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                placeholder="e.g. 22AAAAA0000A1Z5"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Billing address</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Billing address (shown on invoices)
+            </label>
             <textarea
               name="billingAddress"
               value={form.billingAddress}
               onChange={onChange}
               rows={2}
               className="w-full border border-slate-300 rounded-lg px-3 py-2"
+              placeholder="Company registered / billing address"
             />
           </div>
           <div>

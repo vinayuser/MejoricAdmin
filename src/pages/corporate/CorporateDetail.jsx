@@ -165,13 +165,448 @@ const PaymentModal = ({ invoice, onClose, onSuccess }) => {
   );
 };
 
+const toMonthValue = (date) => {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+};
+
+const monthLabel = (value) => {
+  const [y, m] = value.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+};
+
+/** Last 24 months + current + next 3 */
+const buildMonthOptions = () => {
+  const options = [];
+  const now = new Date();
+  for (let offset = -24; offset <= 3; offset += 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    const value = toMonthValue(d);
+    options.push({
+      value,
+      label: monthLabel(value),
+      isCurrent: offset === 0,
+    });
+  }
+  return options.reverse();
+};
+
+const GenerateInvoiceModal = ({
+  corporateId,
+  platformFee,
+  billingCycle,
+  existingInvoices = [],
+  onClose,
+  onSuccess,
+}) => {
+  const monthOptions = buildMonthOptions();
+  const billedMonths = new Set(
+    existingInvoices
+      .filter(
+        (inv) =>
+          inv.invoiceKind !== "onboarding" &&
+          inv.billingCycle !== "one_time" &&
+          inv.status !== "cancelled" &&
+          inv.periodStart,
+      )
+      .map((inv) => toMonthValue(inv.periodStart)),
+  );
+
+  const defaultMonth =
+    monthOptions.find((o) => o.isCurrent && !billedMonths.has(o.value))?.value ||
+    monthOptions.find((o) => !billedMonths.has(o.value))?.value ||
+    monthOptions.find((o) => o.isCurrent)?.value ||
+    monthOptions[0]?.value;
+
+  const [periodMonth, setPeriodMonth] = useState(defaultMonth);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const alreadyBilled = billedMonths.has(periodMonth);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!periodMonth) {
+      toast.error("Select a billing month");
+      return;
+    }
+    if (alreadyBilled) {
+      toast.error(`An invoice already exists for ${monthLabel(periodMonth)}`);
+      return;
+    }
+    if (!Number(platformFee)) {
+      toast.error("Set a monthly platform fee on the contract before generating invoices");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const url = API_ENDPOINTS.CORPORATE.GENERATE_INVOICE.replace(
+        ":id",
+        corporateId,
+      );
+      await axiosInstance.post(url, {
+        periodMonth,
+        billingCycle: billingCycle || "monthly",
+        invoiceKind: "subscription",
+        notes: notes.trim() || undefined,
+      });
+      toast.success(`Invoice created for ${monthLabel(periodMonth)}. Email sent to owner.`);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to generate invoice");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-semibold text-slate-900">Generate invoice</h3>
+        <p className="text-sm text-slate-500 mt-1">
+          Create a subscription invoice for any past or future billing month.
+          Amount: {money(platformFee)} ({CYCLE_LABELS[billingCycle] || billingCycle}).
+        </p>
+        <form onSubmit={submit} className="mt-4 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Billing month
+            </label>
+            <select
+              value={periodMonth}
+              onChange={(e) => setPeriodMonth(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2"
+            >
+              {monthOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                  {opt.isCurrent ? " (current)" : ""}
+                  {billedMonths.has(opt.value) ? " — already invoiced" : ""}
+                </option>
+              ))}
+            </select>
+            {alreadyBilled && (
+              <p className="mt-1.5 text-xs text-amber-700">
+                This month already has a subscription invoice. Pick another month,
+                or cancel the existing one first.
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Notes (optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2"
+              placeholder={`Subscription — ${monthLabel(periodMonth)}`}
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || alreadyBilled}
+              className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm disabled:opacity-50"
+            >
+              {saving ? "Generating..." : "Generate invoice"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const METHOD_LABELS = {
+  bank_transfer: "Bank transfer",
+  upi: "UPI",
+  cheque: "Cheque",
+  razorpay: "Razorpay",
+  cash: "Cash",
+  other: "Other",
+};
+
+const InvoiceViewModal = ({ invoice, corporate, onClose, onRecordPayment }) => {
+  const isOnboarding =
+    invoice.invoiceKind === "onboarding" || invoice.billingCycle === "one_time";
+  const lineItems = invoice.lineItems || [];
+  const payments = invoice.payments || [];
+  const balanceDue =
+    invoice.balanceDue ??
+    Math.max(0, (invoice.totalAmount || 0) - (invoice.amountPaid || 0));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {isOnboarding ? "Onboarding tax invoice" : "Subscription tax invoice"}
+            </p>
+            <h3 className="text-xl font-semibold text-slate-900 mt-0.5">
+              {invoice.invoiceNumber}
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">{corporate?.name}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={invoice.status} />
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-200 px-2.5 py-1 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              From (supplier)
+            </p>
+            <p className="mt-1 font-semibold text-slate-900">Mejoric</p>
+            <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+              GSTIN &amp; address on emailed invoices come from server env{" "}
+              <code className="text-[10px]">MEJORIC_GSTIN</code> /{" "}
+              <code className="text-[10px]">MEJORIC_BILLING_ADDRESS</code>.
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Bill to (customer)
+            </p>
+            <p className="mt-1 font-semibold text-slate-900">
+              {corporate?.name || "—"}
+            </p>
+            <p className="mt-1 text-sm text-slate-700">
+              <span className="text-slate-500">GSTIN:</span>{" "}
+              {corporate?.gstNumber || (
+                <span className="text-amber-700">Not set — add in Edit contract</span>
+              )}
+            </p>
+            {corporate?.billingAddress ? (
+              <p className="mt-1 text-sm text-slate-600 whitespace-pre-line">
+                {corporate.billingAddress}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-amber-700">
+                Billing address not set — add in Edit contract
+              </p>
+            )}
+            {corporate?.billingContactEmail && (
+              <p className="mt-1 text-xs text-slate-500">
+                {corporate.billingContactEmail}
+                {corporate.billingContactPhone
+                  ? ` · ${corporate.billingContactPhone}`
+                  : ""}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="text-[11px] uppercase text-slate-500">Period</p>
+            <p className="text-sm font-medium text-slate-900 mt-1">
+              {isOnboarding
+                ? "One-time"
+                : `${formatDate(invoice.periodStart)} – ${formatDate(invoice.periodEnd)}`}
+            </p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="text-[11px] uppercase text-slate-500">Cycle</p>
+            <p className="text-sm font-medium text-slate-900 mt-1">
+              {CYCLE_LABELS[invoice.billingCycle] || invoice.billingCycle}
+            </p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="text-[11px] uppercase text-slate-500">Due date</p>
+            <p className="text-sm font-medium text-slate-900 mt-1">
+              {formatDate(invoice.dueDate)}
+            </p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="text-[11px] uppercase text-slate-500">Balance due</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">
+              {money(balanceDue)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <h4 className="text-sm font-semibold text-slate-900 mb-2">Line items</h4>
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Description</th>
+                  <th className="px-3 py-2 font-medium text-right">Qty</th>
+                  <th className="px-3 py-2 font-medium text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {lineItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-3 py-4 text-center text-slate-400">
+                      No line items
+                    </td>
+                  </tr>
+                ) : (
+                  lineItems.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="px-3 py-2.5 text-slate-700">
+                        <div>{item.description}</div>
+                        <div className="text-[11px] text-slate-400 capitalize">
+                          {(item.type || "").replace(/_/g, " ")}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-slate-600">
+                        {item.quantity ?? 1}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-900">
+                        {money(item.amount)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-3 ml-auto w-full max-w-xs space-y-1.5 text-sm">
+            <div className="flex justify-between text-slate-600">
+              <span>Subtotal</span>
+              <span>{money(invoice.subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>GST ({invoice.taxPercent ?? 18}%)</span>
+              <span>{money(invoice.taxAmount)}</span>
+            </div>
+            <div className="flex justify-between font-semibold text-slate-900 border-t border-slate-200 pt-1.5">
+              <span>Total</span>
+              <span>{money(invoice.totalAmount)}</span>
+            </div>
+            <div className="flex justify-between text-emerald-700">
+              <span>Paid</span>
+              <span>{money(invoice.amountPaid)}</span>
+            </div>
+            <div className="flex justify-between font-medium text-slate-900">
+              <span>Balance due</span>
+              <span>{money(balanceDue)}</span>
+            </div>
+          </div>
+        </div>
+
+        {(Number(invoice.minuteAllocation?.audio) > 0 ||
+          Number(invoice.minuteAllocation?.video) > 0 ||
+          Number(invoice.minuteAllocation?.chat) > 0) && (
+          <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+            <p className="text-xs font-medium uppercase text-slate-500 mb-1">
+              Included minute snapshot
+            </p>
+            <p className="text-slate-700">
+              Audio {invoice.minuteAllocation?.audio ?? 0} · Video{" "}
+              {invoice.minuteAllocation?.video ?? 0} · Chat{" "}
+              {invoice.minuteAllocation?.chat ?? 0}
+            </p>
+          </div>
+        )}
+
+        <div className="mt-6">
+          <h4 className="text-sm font-semibold text-slate-900 mb-2">Payment history</h4>
+          {payments.length === 0 ? (
+            <p className="text-sm text-slate-400">No payments recorded yet.</p>
+          ) : (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Date</th>
+                    <th className="px-3 py-2 font-medium">Method</th>
+                    <th className="px-3 py-2 font-medium">Reference</th>
+                    <th className="px-3 py-2 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {payments.map((p, idx) => (
+                    <tr key={p._id || idx}>
+                      <td className="px-3 py-2.5 text-slate-700">
+                        {formatDate(p.paidAt)}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-600">
+                        {METHOD_LABELS[p.method] || p.method || "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-600">
+                        {p.reference || p.notes || "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-900">
+                        {money(p.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {invoice.notes && (
+          <p className="mt-4 text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
+            <span className="font-medium">Notes:</span> {invoice.notes}
+          </p>
+        )}
+
+        <div className="mt-6 flex flex-wrap gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-sm"
+          >
+            Close
+          </button>
+          {!["paid", "cancelled"].includes(invoice.status) && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onRecordPayment?.(invoice);
+              }}
+              className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm"
+            >
+              Record payment
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CorporateDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState("overview");
   const [payInvoice, setPayInvoice] = useState(null);
-  const [generating, setGenerating] = useState(false);
+  const [viewInvoice, setViewInvoice] = useState(null);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   const dashboardUrl = API_ENDPOINTS.CORPORATE.DASHBOARD.replace(":id", id);
   const usageUrl = `${API_ENDPOINTS.CORPORATE.USAGE.replace(":id", id)}?limit=50`;
@@ -193,6 +628,12 @@ const CorporateDetail = () => {
   const corp = dashboard?.corporate;
   const billing = dashboard?.billing;
   const invoices = dashboard?.invoices || [];
+  const onboardingInvoices =
+    dashboard?.onboardingInvoices ||
+    invoices.filter((i) => i.invoiceKind === "onboarding" || i.billingCycle === "one_time");
+  const subscriptionInvoices =
+    dashboard?.subscriptionInvoices ||
+    invoices.filter((i) => i.invoiceKind !== "onboarding" && i.billingCycle !== "one_time");
   const usageStats = dashboard?.usageStats;
   const recentUsage = dashboard?.recentUsage || [];
 
@@ -200,21 +641,6 @@ const CorporateDetail = () => {
     refetch();
     queryClient.invalidateQueries({ queryKey: ["corporate-usage", id] });
     queryClient.invalidateQueries({ queryKey: ["corporates"] });
-  };
-
-  const handleGenerateInvoice = async () => {
-    if (!window.confirm("Generate invoice for the current billing period?")) return;
-    setGenerating(true);
-    try {
-      const url = API_ENDPOINTS.CORPORATE.GENERATE_INVOICE.replace(":id", id);
-      await axiosInstance.post(url, {});
-      toast.success("Invoice generated");
-      refresh();
-    } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to generate invoice");
-    } finally {
-      setGenerating(false);
-    }
   };
 
   const handleCancelInvoice = async (invoice) => {
@@ -241,12 +667,41 @@ const CorporateDetail = () => {
   }
 
   const invoiceColumns = [
-    { key: "invoiceNumber", title: "Invoice #" },
+    {
+      key: "invoiceNumber",
+      title: "Invoice #",
+      render: (row) => (
+        <button
+          type="button"
+          onClick={() => setViewInvoice(row)}
+          className="font-medium text-slate-900 hover:underline text-left"
+        >
+          {row.invoiceNumber}
+        </button>
+      ),
+    },
+    {
+      key: "invoiceKind",
+      title: "Type",
+      render: (row) => (
+        <span
+          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+            row.invoiceKind === "onboarding"
+              ? "bg-violet-50 text-violet-700"
+              : "bg-sky-50 text-sky-700"
+          }`}
+        >
+          {row.invoiceKind === "onboarding" ? "Onboarding" : "Subscription"}
+        </span>
+      ),
+    },
     {
       key: "period",
       title: "Period",
       render: (row) =>
-        `${formatDate(row.periodStart)} – ${formatDate(row.periodEnd)}`,
+        row.invoiceKind === "onboarding" || row.billingCycle === "one_time"
+          ? "One-time"
+          : `${formatDate(row.periodStart)} – ${formatDate(row.periodEnd)}`,
     },
     {
       key: "billingCycle",
@@ -281,29 +736,37 @@ const CorporateDetail = () => {
     {
       key: "actions",
       title: "Actions",
-      render: (row) =>
-        !["paid", "cancelled"].includes(row.status) ? (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPayInvoice(row)}
-              className="text-green-700 hover:underline text-sm"
-            >
-              Record payment
-            </button>
-            {(row.amountPaid || 0) === 0 && (
+      render: (row) => (
+        <div className="flex flex-wrap gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => setViewInvoice(row)}
+            className="text-slate-700 hover:underline text-sm"
+          >
+            View
+          </button>
+          {!["paid", "cancelled"].includes(row.status) && (
+            <>
               <button
                 type="button"
-                onClick={() => handleCancelInvoice(row)}
-                className="text-red-600 hover:underline text-sm"
+                onClick={() => setPayInvoice(row)}
+                className="text-green-700 hover:underline text-sm"
               >
-                Cancel
+                Record payment
               </button>
-            )}
-          </div>
-        ) : (
-          "—"
-        ),
+              {(row.amountPaid || 0) === 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleCancelInvoice(row)}
+                  className="text-red-600 hover:underline text-sm"
+                >
+                  Cancel
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -363,6 +826,24 @@ const CorporateDetail = () => {
           onSuccess={refresh}
         />
       )}
+      {viewInvoice && (
+        <InvoiceViewModal
+          invoice={viewInvoice}
+          corporate={corp}
+          onClose={() => setViewInvoice(null)}
+          onRecordPayment={(inv) => setPayInvoice(inv)}
+        />
+      )}
+      {showGenerateModal && (
+        <GenerateInvoiceModal
+          corporateId={id}
+          platformFee={billing?.monthlyPlatformFee || corp.monthlyPlatformFee}
+          billingCycle={billing?.billingCycle || corp.billingCycle}
+          existingInvoices={invoices}
+          onClose={() => setShowGenerateModal(false)}
+          onSuccess={refresh}
+        />
+      )}
 
       <button
         type="button"
@@ -394,11 +875,10 @@ const CorporateDetail = () => {
           </button>
           <button
             type="button"
-            disabled={generating}
-            onClick={handleGenerateInvoice}
-            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm disabled:opacity-50"
+            onClick={() => setShowGenerateModal(true)}
+            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm"
           >
-            {generating ? "Generating..." : "Generate invoice"}
+            Generate invoice
           </button>
         </div>
       </div>
@@ -483,6 +963,25 @@ const CorporateDetail = () => {
                 </dd>
               </div>
               <div className="flex justify-between">
+                <dt className="text-slate-500">Days remaining</dt>
+                <dd
+                  className={
+                    corp.contractExpired
+                      ? "text-red-700 font-medium"
+                      : corp.contractRemainingDays != null &&
+                          corp.contractRemainingDays <= 30
+                        ? "text-amber-700 font-medium"
+                        : ""
+                  }
+                >
+                  {corp.contractExpired
+                    ? "Expired — login blocked"
+                    : corp.contractRemainingDays == null
+                      ? "Open-ended"
+                      : `${corp.contractRemainingDays} day${corp.contractRemainingDays === 1 ? "" : "s"}`}
+                </dd>
+              </div>
+              <div className="flex justify-between">
                 <dt className="text-slate-500">Payment terms</dt>
                 <dd>{corp.paymentTermsDays ?? 15} days</dd>
               </div>
@@ -522,15 +1021,47 @@ const CorporateDetail = () => {
       )}
 
       {tab === "invoices" && (
-        <div>
+        <div className="space-y-8">
           {billing?.nextDueInvoice && (
-            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
               <span className="font-medium">Next payment due:</span>{" "}
               {billing.nextDueInvoice.invoiceNumber} — {money(billing.nextDueInvoice.balanceDue)}{" "}
               by {formatDate(billing.nextDueInvoice.dueDate)}
+              {billing.nextDueInvoice.invoiceKind === "onboarding" ? " (onboarding)" : ""}
             </div>
           )}
-          <Table columns={invoiceColumns} data={invoices} emptyMessage="No invoices yet." />
+
+          <section>
+            <div className="mb-3">
+              <h2 className="text-base font-semibold text-slate-900">
+                Onboarding charges
+              </h2>
+              <p className="text-sm text-slate-500">
+                One-time setup / onboarding fees. Kept separate from recurring bills.
+              </p>
+            </div>
+            <Table
+              columns={invoiceColumns}
+              data={onboardingInvoices}
+              emptyMessage="No onboarding invoices."
+            />
+          </section>
+
+          <section>
+            <div className="mb-3">
+              <h2 className="text-base font-semibold text-slate-900">
+                Subscription billing history
+              </h2>
+              <p className="text-sm text-slate-500">
+                Recurring platform fees by billing period.
+              </p>
+            </div>
+            <Table
+              columns={invoiceColumns}
+              data={subscriptionInvoices}
+              emptyMessage="No subscription invoices yet."
+            />
+          </section>
         </div>
       )}
 
