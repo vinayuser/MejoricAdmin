@@ -154,44 +154,80 @@ const MentorEdit = () => {
 
     setIsSubmitting(true);
     try {
-      const data = new FormData();
-      data.append("name", formData.name);
-      data.append("bio", formData.bio || "");
-      data.append("experience", Number(formData.experience) || 0);
-      data.append("isActive", String(Boolean(formData.isActive)));
-      data.append("mentorType", formData.mentorType);
-      formData.domainIds.forEach((domainId) => data.append("domainIds", domainId));
-      resolvedDomains.forEach((d) => data.append("domains", d.name));
-      data.append("domainId", resolvedDomains[0].id);
-      data.append("domain", resolvedDomains[0].name);
-      formData.languages.forEach((lang) => data.append("languages", lang));
-      resolvedDomains.forEach((d) => data.append("specifications", d.name));
-      // Full amount for the slot — stored exactly as entered
-      data.append("audioCallPrice", String(audio));
-      data.append("videoCallPrice", String(video));
+      const payload = {
+        name: formData.name,
+        bio: formData.bio || "",
+        experience: Number(formData.experience) || 0,
+        isActive: Boolean(formData.isActive),
+        mentorType: formData.mentorType,
+        domainIds: formData.domainIds,
+        domains: resolvedDomains.map((d) => d.name),
+        domainId: resolvedDomains[0].id,
+        domain: resolvedDomains[0].name,
+        languages: formData.languages,
+        specifications: resolvedDomains.map((d) => d.name),
+        // Full amount for the slot — stored exactly as entered
+        audioCallPrice: audio,
+        videoCallPrice: video,
+      };
       if (video60 != null) {
-        data.append("video60CallPrice", String(video60));
+        payload.video60CallPrice = video60;
       }
+
+      let res;
       if (formData.image instanceof File) {
+        // Image upload requires multipart; do not set Content-Type (boundary)
+        const data = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            value.forEach((item) => data.append(key, item));
+          } else if (value !== undefined && value !== null) {
+            data.append(key, String(value));
+          }
+        });
         data.append("image", formData.image);
+        res = await axiosInstance.put(
+          `${API_ENDPOINTS.MENTORS.UPDATE}/${id}`,
+          data,
+        );
+      } else {
+        // JSON body — reliable for price fields (avoids multipart parse issues)
+        res = await axiosInstance.put(
+          `${API_ENDPOINTS.MENTORS.UPDATE}/${id}`,
+          payload,
+        );
       }
 
-      const res = await axiosInstance.put(
-        `${API_ENDPOINTS.MENTORS.UPDATE}/${id}`,
-        data,
-        { headers: { "Content-Type": "multipart/form-data" } },
-      );
+      const savedFromPut = res?.data?.data?.mentor || {};
+      let audioSaved = Number(savedFromPut.audioCallPrice);
+      let videoSaved = Number(savedFromPut.videoCallPrice);
+      let video60Saved = Number(savedFromPut.video60CallPrice);
 
-      // Confirm prices persisted (GET after PUT)
-      const verify = await axiosInstance.get(
-        `${API_ENDPOINTS.MENTORS.GET_ONE}/${id}`,
-      );
-      const saved = verify?.data?.data?.mentor || {};
-      const audioSaved = Number(saved.audioCallPrice);
-      const videoSaved = Number(saved.videoCallPrice);
+      // Fallback verify via GET if PUT response lacks mentor prices
+      if (
+        !Number.isFinite(audioSaved) ||
+        audioSaved <= 0 ||
+        !Number.isFinite(videoSaved) ||
+        videoSaved <= 0
+      ) {
+        const verify = await axiosInstance.get(
+          `${API_ENDPOINTS.MENTORS.GET_ONE}/${id}`,
+        );
+        const saved = verify?.data?.data?.mentor || {};
+        audioSaved = Number(saved.audioCallPrice);
+        videoSaved = Number(saved.videoCallPrice);
+        video60Saved = Number(saved.video60CallPrice);
+      }
+
       if (audioSaved !== audio || videoSaved !== video) {
         toast.error(
-          "Server did not save prices. Deploy the latest backend (mentor price update fix), then try again.",
+          `Prices did not save (got audio ₹${Number.isFinite(audioSaved) ? audioSaved : "—"}, video ₹${Number.isFinite(videoSaved) ? videoSaved : "—"}). Ensure Server is restarted with the latest mentor price update.`,
+        );
+        return;
+      }
+      if (video60 != null && video60Saved !== video60) {
+        toast.error(
+          `60-min video price did not save (expected ₹${video60}, got ₹${Number.isFinite(video60Saved) ? video60Saved : "—"}).`,
         );
         return;
       }

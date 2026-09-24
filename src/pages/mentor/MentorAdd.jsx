@@ -111,9 +111,8 @@ const MentorAdd = () => {
       }
       if (formData.image) data.append("image", formData.image);
 
-      await axiosInstance.post(API_ENDPOINTS.MENTORS.CREATE, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      // Do not set Content-Type — browser must add multipart boundary
+      await axiosInstance.post(API_ENDPOINTS.MENTORS.CREATE, data);
 
       await queryClient.invalidateQueries({ queryKey: ["mentors"] });
       toast.success("Mentor added successfully!");

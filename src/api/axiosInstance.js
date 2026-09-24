@@ -12,11 +12,18 @@ const axiosInstance = axios.create({
   },
 });
 
-// Request interceptor to handle FormData and other config
+// Request interceptor: FormData must use browser-set multipart boundary
 axiosInstance.interceptors.request.use(
   (config) => {
-    if (config.data instanceof FormData) {
-      delete config.headers["Content-Type"];
+    if (config.data instanceof FormData && config.headers) {
+      // AxiosHeaders supports .delete(); plain objects need delete
+      if (typeof config.headers.delete === "function") {
+        config.headers.delete("Content-Type");
+        config.headers.delete("content-type");
+      } else {
+        delete config.headers["Content-Type"];
+        delete config.headers["content-type"];
+      }
     }
     return config;
   },
